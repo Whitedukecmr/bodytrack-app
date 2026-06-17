@@ -14,7 +14,7 @@ services:
     image: ${ECR_REGISTRY}/bodytrack/backend:latest
     container_name: bodytrack-backend
     ports:
-      - "3001:3001"
+      - "3002:3001"
     environment:
       - DB_HOST=postgres
       - DB_PORT=5432
@@ -30,7 +30,7 @@ services:
     image: ${ECR_REGISTRY}/bodytrack/frontend:latest
     container_name: bodytrack-frontend
     ports:
-      - "8080:80"
+      - "8081:80"
     depends_on:
       - backend
     restart: unless-stopped

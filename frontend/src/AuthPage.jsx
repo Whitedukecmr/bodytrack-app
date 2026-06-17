@@ -48,15 +48,15 @@ export default function AuthPage({ onAuth }) {
 
       {mode === "register" && (
         <>
-          <Field label="Prénom" value={form.prenom} onChange={set("prenom")} placeholder="Frédéric" />
-          <Field label="Nom" value={form.nom} onChange={set("nom")} placeholder="Epesse Priso" />
+          <Field label="Prénom" value={form.prenom} onChange={set("prenom")} placeholder="Ex: Marie" />
+          <Field label="Nom" value={form.nom} onChange={set("nom")} placeholder="Ex: Dupont" />
           <Select label="Sexe" value={form.sexe} onChange={set("sexe")} options={[
             { value: "homme", label: "Homme" }, { value: "femme", label: "Femme" }
           ]} />
-          <Field label="Âge" value={form.age} onChange={set("age")} type="number" unit="ans" placeholder="30" />
-          <Field label="Taille" value={form.taille_cm} onChange={set("taille_cm")} type="number" unit="cm" placeholder="175" />
-          <Field label="Poids actuel" value={form.poids_initial_kg} onChange={set("poids_initial_kg")} type="number" unit="kg" placeholder="113.3" />
-          <Field label="Poids objectif" value={form.poids_objectif_kg} onChange={set("poids_objectif_kg")} type="number" unit="kg" placeholder="95" />
+          <Field label="Âge" value={form.age} onChange={set("age")} type="number" unit="ans" placeholder="Ex: 35" />
+          <Field label="Taille" value={form.taille_cm} onChange={set("taille_cm")} type="number" unit="cm" placeholder="Ex: 170" />
+          <Field label="Poids actuel" value={form.poids_initial_kg} onChange={set("poids_initial_kg")} type="number" unit="kg" placeholder="Ex: 80" />
+          <Field label="Poids objectif" value={form.poids_objectif_kg} onChange={set("poids_objectif_kg")} type="number" unit="kg" placeholder="Ex: 75" />
           <Select label="Niveau d'activité" value={form.niveau_activite} onChange={set("niveau_activite")} options={[
             { value: "sedentaire", label: "Sédentaire (bureau, peu de sport)" },
             { value: "leger", label: "Légèrement actif (1-2x/sem)" },

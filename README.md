@@ -55,7 +55,7 @@ BodyTrack est une application web de suivi de perte de poids et de recomposition
 flowchart TD
     Internet([🌐 Internet]) --> DNS
 
-    DNS["🦆 DuckDNS\nbodytrack.duckdns.org\n→ 15.237.135.238"]
+    DNS["🦆 DuckDNS\nbodytrack.duckdns.org\n→ 15..15.238"]
 
     DNS --> EC2
 

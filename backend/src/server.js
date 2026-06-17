@@ -6,6 +6,7 @@ const pool = require('./db/pool');
 const authRoutes = require('./routes/auth');
 const profileRoutes = require('./routes/profile');
 const visionRoutes = require('./routes/vision');
+const cronRoutes = require('./routes/cron');
 
 const app = express();
 app.use(cors({ origin: '*' }));
@@ -14,6 +15,7 @@ app.use(express.json({ limit: '20mb' }));
 app.use('/api/auth', authRoutes);
 app.use('/api/profile', profileRoutes);
 app.use('/api/vision', visionRoutes);
+app.use('/api/cron', cronRoutes);
 
 app.get('/health', (req, res) => res.json({ status: 'ok' }));
 

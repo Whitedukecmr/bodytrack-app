@@ -2,6 +2,7 @@ const express = require('express');
 const bcrypt = require('bcryptjs');
 const pool = require('../db/pool');
 const { signToken } = require('../middleware/auth');
+const { sendEmail, welcomeEmail } = require('../utils/email');
 
 const router = express.Router();
 
@@ -32,6 +33,9 @@ router.post('/register', async (req, res) => {
 
     const user = result.rows[0];
     const token = signToken(user.id);
+
+    const { subject, html } = welcomeEmail(user.prenom);
+    sendEmail({ to: user.email, subject, html }).catch(err => console.error('Erreur email bienvenue:', err.message));
 
     res.status(201).json({ token, user });
   } catch (err) {

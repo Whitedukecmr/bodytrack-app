@@ -83,6 +83,8 @@ jobs:
             export ECR_REGISTRY=${{ secrets.ECR_REGISTRY }}
             export DB_PASSWORD=${{ secrets.DB_PASSWORD }}
             export JWT_SECRET=${{ secrets.JWT_SECRET }}
+            export RESEND_API_KEY=${{ secrets.RESEND_API_KEY }}
+            export CRON_SECRET=${{ secrets.CRON_SECRET }}
 
             docker compose -f docker-compose.prod.yml down
             docker compose -f docker-compose.prod.yml up -d

@@ -26,7 +26,19 @@ router.get('/dashboard/today', async (req, res) => {
     const user = userResult.rows[0];
     if (!user) return res.status(404).json({ error: 'Utilisateur introuvable' });
 
-    const bmr = calcBMR(user);
+    // Dernière composition corporelle connue (sinon poids initial du profil)
+    const bodyResult = await pool.query(
+      `SELECT * FROM body_composition WHERE user_id = $1 ORDER BY logged_at DESC LIMIT 1`,
+      [req.userId]
+    );
+    const dernierPoids = Number(bodyResult.rows[0]?.poids_kg ?? user.poids_initial_kg);
+
+    const bmr = calcBMR({
+      sexe: user.sexe,
+      age: user.age,
+      taille_cm: user.taille_cm,
+      poids_kg: dernierPoids,
+    });
     const tdee = calcTDEE(bmr, user.niveau_activite);
 
     const mealsResult = await pool.query(
@@ -41,17 +53,10 @@ router.get('/dashboard/today', async (req, res) => {
     const caloriesIngerees = mealsResult.rows.reduce((sum, m) => sum + (m.calories || 0), 0);
     const caloriesActivite = activitiesResult.rows.reduce((sum, a) => sum + (a.calories_brulees || 0), 0);
 
-    const depenseTotale = tdee + caloriesActivite - tdee; // tdee inclut déjà le NEAT de base
-    // Dépense du jour = TDEE (base + NEAT estimé) + activité spécifique loggée en plus
+    // Dépense du jour = TDEE (métabolisme de base + NEAT estimé) + activité spécifique loggée en plus
     const depenseDuJour = tdee + caloriesActivite;
     const deficitNet = depenseDuJour - caloriesIngerees;
 
-    // Dernière composition corporelle connue
-    const bodyResult = await pool.query(
-      `SELECT * FROM body_composition WHERE user_id = $1 ORDER BY logged_at DESC LIMIT 1`,
-      [req.userId]
-    );
-    const dernierPoids = bodyResult.rows[0]?.poids_kg || user.poids_initial_kg;
     const bmi = calcBMI(dernierPoids, user.taille_cm);
 
     res.json({
@@ -96,7 +101,12 @@ router.get('/dashboard/progress', async (req, res) => {
       [req.userId]
     );
 
-    const bmr = calcBMR(user);
+    const bmr = calcBMR({
+      sexe: user.sexe,
+      age: user.age,
+      taille_cm: user.taille_cm,
+      poids_kg: poidsActuel,
+    });
     const tdee = calcTDEE(bmr, user.niveau_activite);
     const totalIngereSemaine = +deficitResult.rows[0].total_ingere;
     const deficitMoyenJournalier = tdee - (totalIngereSemaine / 7);

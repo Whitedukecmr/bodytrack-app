@@ -2,7 +2,10 @@
 
 // Formule de Mifflin-St Jeor (la plus précise et utilisée cliniquement)
 function calcBMR({ sexe, poids_kg, taille_cm, age }) {
-  const base = 10 * poids_kg + 6.25 * taille_cm - 5 * age;
+  const p = Number(poids_kg);
+  const t = Number(taille_cm);
+  const a = Number(age);
+  const base = 10 * p + 6.25 * t - 5 * a;
   return Math.round(sexe === 'femme' ? base - 161 : base + 5);
 }
 

@@ -7,7 +7,7 @@ const router = express.Router();
 router.use(requireAuth);
 
 const bedrock = new BedrockRuntimeClient({ region: 'eu-west-3' });
-const MODEL_ID = 'eu.anthropic.claude-sonnet-4-20250514-v1:0';
+const MODEL_ID = 'eu.anthropic.claude-sonnet-4-5-20250929-v1:0';
 
 function detectMediaType(base64) {
   if (base64.startsWith('/9j/')) return 'image/jpeg';

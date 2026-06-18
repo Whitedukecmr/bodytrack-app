@@ -19,17 +19,22 @@ router.get('/me', async (req, res) => {
   }
 });
 
-// Dashboard du jour : déficit calorique net, repas du jour, activité du jour
+// Dashboard d'un jour donné (par défaut aujourd'hui) : déficit calorique net, repas, activité
+// Query param optionnel ?date=YYYY-MM-DD pour naviguer vers un autre jour
 router.get('/dashboard/today', async (req, res) => {
   try {
+    const targetDate = req.query.date || null; // null = CURRENT_DATE côté SQL
+
     const userResult = await pool.query('SELECT * FROM users WHERE id = $1', [req.userId]);
     const user = userResult.rows[0];
     if (!user) return res.status(404).json({ error: 'Utilisateur introuvable' });
 
-    // Dernière composition corporelle connue (sinon poids initial du profil)
+    // Dernière composition corporelle connue à cette date (ou avant), sinon poids initial du profil
     const bodyResult = await pool.query(
-      `SELECT * FROM body_composition WHERE user_id = $1 ORDER BY logged_at DESC LIMIT 1`,
-      [req.userId]
+      targetDate
+        ? `SELECT * FROM body_composition WHERE user_id = $1 AND logged_at::date <= $2 ORDER BY logged_at DESC LIMIT 1`
+        : `SELECT * FROM body_composition WHERE user_id = $1 ORDER BY logged_at DESC LIMIT 1`,
+      targetDate ? [req.userId, targetDate] : [req.userId]
     );
     const dernierPoids = Number(bodyResult.rows[0]?.poids_kg ?? user.poids_initial_kg);
 
@@ -42,12 +47,16 @@ router.get('/dashboard/today', async (req, res) => {
     const tdee = calcTDEE(bmr, user.niveau_activite);
 
     const mealsResult = await pool.query(
-      `SELECT * FROM meals WHERE user_id = $1 AND logged_at::date = CURRENT_DATE ORDER BY logged_at ASC`,
-      [req.userId]
+      targetDate
+        ? `SELECT * FROM meals WHERE user_id = $1 AND logged_at::date = $2 ORDER BY logged_at ASC`
+        : `SELECT * FROM meals WHERE user_id = $1 AND logged_at::date = CURRENT_DATE ORDER BY logged_at ASC`,
+      targetDate ? [req.userId, targetDate] : [req.userId]
     );
     const activitiesResult = await pool.query(
-      `SELECT * FROM activities WHERE user_id = $1 AND logged_at::date = CURRENT_DATE ORDER BY logged_at ASC`,
-      [req.userId]
+      targetDate
+        ? `SELECT * FROM activities WHERE user_id = $1 AND logged_at::date = $2 ORDER BY logged_at ASC`
+        : `SELECT * FROM activities WHERE user_id = $1 AND logged_at::date = CURRENT_DATE ORDER BY logged_at ASC`,
+      targetDate ? [req.userId, targetDate] : [req.userId]
     );
 
     const caloriesIngerees = mealsResult.rows.reduce((sum, m) => sum + (m.calories || 0), 0);
@@ -60,6 +69,7 @@ router.get('/dashboard/today', async (req, res) => {
     const bmi = calcBMI(dernierPoids, user.taille_cm);
 
     res.json({
+      date: targetDate || new Date().toISOString().slice(0, 10),
       bmr,
       tdee,
       caloriesIngerees,
@@ -74,6 +84,77 @@ router.get('/dashboard/today', async (req, res) => {
     });
   } catch (err) {
     console.error('Erreur dashboard:', err.message);
+    res.status(500).json({ error: err.message });
+  }
+});
+
+// Vue agrégée sur une plage de jours (semaine ou mois) : un point par jour
+// Query params : ?days=7 ou ?days=30, optionnel ?endDate=YYYY-MM-DD (par défaut aujourd'hui)
+router.get('/dashboard/range', async (req, res) => {
+  try {
+    const days = Math.min(Math.max(parseInt(req.query.days) || 7, 1), 90);
+    const endDate = req.query.endDate || new Date().toISOString().slice(0, 10);
+
+    const userResult = await pool.query('SELECT * FROM users WHERE id = $1', [req.userId]);
+    const user = userResult.rows[0];
+    if (!user) return res.status(404).json({ error: 'Utilisateur introuvable' });
+
+    // Toutes les dates de la plage, même celles sans aucune donnée (LEFT JOIN via generate_series)
+    const result = await pool.query(
+      `WITH jours AS (
+        SELECT generate_series($2::date - ($3::int - 1), $2::date, '1 day')::date AS jour
+      ),
+      repas_jour AS (
+        SELECT logged_at::date AS jour, COALESCE(SUM(calories), 0) AS calories_ingerees, COUNT(*) AS nb_repas
+        FROM meals
+        WHERE user_id = $1
+        GROUP BY logged_at::date
+      ),
+      activite_jour AS (
+        SELECT logged_at::date AS jour, COALESCE(SUM(calories_brulees), 0) AS calories_activite
+        FROM activities
+        WHERE user_id = $1
+        GROUP BY logged_at::date
+      )
+      SELECT
+        jours.jour,
+        COALESCE(repas_jour.calories_ingerees, 0) AS calories_ingerees,
+        COALESCE(repas_jour.nb_repas, 0) AS nb_repas,
+        COALESCE(activite_jour.calories_activite, 0) AS calories_activite
+      FROM jours
+      LEFT JOIN repas_jour ON repas_jour.jour = jours.jour
+      LEFT JOIN activite_jour ON activite_jour.jour = jours.jour
+      ORDER BY jours.jour ASC`,
+      [req.userId, endDate, days]
+    );
+
+    // Dernier poids connu pour calculer un TDEE de référence (approximation sur toute la plage)
+    const bodyResult = await pool.query(
+      `SELECT * FROM body_composition WHERE user_id = $1 AND logged_at::date <= $2 ORDER BY logged_at DESC LIMIT 1`,
+      [req.userId, endDate]
+    );
+    const poidsRef = Number(bodyResult.rows[0]?.poids_kg ?? user.poids_initial_kg);
+    const bmr = calcBMR({ sexe: user.sexe, age: user.age, taille_cm: user.taille_cm, poids_kg: poidsRef });
+    const tdee = calcTDEE(bmr, user.niveau_activite);
+
+    const jours = result.rows.map(r => {
+      const depenseDuJour = tdee + Number(r.calories_activite);
+      const deficitNet = depenseDuJour - Number(r.calories_ingerees);
+      return {
+        date: r.jour.toISOString().slice(0, 10),
+        caloriesIngerees: Number(r.calories_ingerees),
+        caloriesActivite: Number(r.calories_activite),
+        depenseDuJour,
+        deficitNet,
+        nbRepas: Number(r.nb_repas),
+      };
+    });
+
+    const deficitMoyen = jours.reduce((sum, j) => sum + j.deficitNet, 0) / jours.length;
+
+    res.json({ days, tdee, deficitMoyen: Math.round(deficitMoyen), jours });
+  } catch (err) {
+    console.error('Erreur dashboard/range:', err.message);
     res.status(500).json({ error: err.message });
   }
 });

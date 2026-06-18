@@ -2,6 +2,7 @@ import { useState, useEffect } from "react";
 import { api, clearToken } from "./api";
 import { Card, Btn, BLUE, BLUE_LIGHT, GREEN, ORANGE, RED, Select } from "./ui";
 import PhotoCapture from "./PhotoCapture";
+import DeficitChart from "./DeficitChart";
 
 const MOMENTS = [
   { value: "matin", label: "🌅 Matin" },
@@ -20,38 +21,83 @@ const ACTIVITY_TYPES = [
 ];
 
 function scoreColor(s) { return s >= 7 ? GREEN : s >= 4 ? ORANGE : RED; }
+function todayStr() { return new Date().toISOString().slice(0, 10); }
+function addDays(dateStr, n) {
+  const d = new Date(dateStr + "T00:00:00");
+  d.setDate(d.getDate() + n);
+  return d.toISOString().slice(0, 10);
+}
+function formatDateLabel(dateStr) {
+  const d = new Date(dateStr + "T00:00:00");
+  const t = todayStr();
+  if (dateStr === t) return "Aujourd'hui";
+  if (dateStr === addDays(t, -1)) return "Hier";
+  return d.toLocaleDateString('fr-FR', { weekday: 'long', day: 'numeric', month: 'long' });
+}
 
 export default function Dashboard({ user, onLogout }) {
   const [tab, setTab] = useState("journal");
+  const [journalView, setJournalView] = useState("jour");
+  const [selectedDate, setSelectedDate] = useState(todayStr());
   const [today, setToday] = useState(null);
+  const [range, setRange] = useState(null);
   const [progress, setProgress] = useState(null);
   const [moment, setMoment] = useState("midi");
   const [activityType, setActivityType] = useState("marche");
+  const [showDatePicker, setShowDatePicker] = useState(false);
 
-  async function refresh() {
+  async function loadDay(date) {
     try {
-      const [t, p] = await Promise.all([api.dashboardToday(), api.dashboardProgress()]);
+      const t = await api.dashboardToday(date === todayStr() ? null : date);
       setToday(t);
-      setProgress(p);
-    } catch (e) {
-      console.error(e);
-    }
+    } catch (e) { console.error(e); }
   }
 
-  useEffect(() => { refresh(); }, []);
+  async function loadRange(days) {
+    try {
+      const r = await api.dashboardRange(days);
+      setRange(r);
+    } catch (e) { console.error(e); }
+  }
+
+  async function loadProgress() {
+    try {
+      const p = await api.dashboardProgress();
+      setProgress(p);
+    } catch (e) { console.error(e); }
+  }
+
+  async function refresh() {
+    await loadDay(selectedDate);
+    await loadProgress();
+    if (journalView === "semaine") await loadRange(7);
+    if (journalView === "mois") await loadRange(30);
+  }
+
+  useEffect(() => { loadDay(selectedDate); }, [selectedDate]);
+  useEffect(() => { loadProgress(); }, []);
+  useEffect(() => {
+    if (journalView === "semaine") loadRange(7);
+    if (journalView === "mois") loadRange(30);
+  }, [journalView]);
 
   function logout() { clearToken(); onLogout(); }
 
+  function goToDay(date) {
+    setSelectedDate(date);
+    setJournalView("jour");
+    setTab("journal");
+  }
+
   if (!today) return <div style={{ padding: 40, textAlign: "center", color: "#888" }}>Chargement...</div>;
 
-  const deficitColor = today.deficitNet > 0 ? GREEN : RED;
   const grouped = MOMENTS.map(m => ({ ...m, repas: today.repas.filter(r => r.moment === m.value) }));
+  const isToday = selectedDate === todayStr();
 
   return (
     <div style={{ minHeight: "100vh", background: "#F4F6FF", fontFamily: "'Sora', sans-serif" }}>
       <style>{`@import url('https://fonts.googleapis.com/css2?family=Sora:wght@400;600;700;800;900&display=swap');`}</style>
 
-      {/* Header */}
       <div style={{ background: `linear-gradient(135deg, ${BLUE} 0%, #6366F1 100%)`, padding: "20px 20px 26px", borderRadius: "0 0 28px 28px" }}>
         <div style={{ display: "flex", justifyContent: "space-between", alignItems: "center" }}>
           <div>
@@ -61,9 +107,10 @@ export default function Dashboard({ user, onLogout }) {
           <div onClick={logout} style={{ width: 40, height: 40, borderRadius: "50%", background: "rgba(255,255,255,0.2)", display: "flex", alignItems: "center", justifyContent: "center", fontSize: 18, cursor: "pointer" }}>🚪</div>
         </div>
 
-        {/* Déficit net du jour - LE chiffre clé */}
         <div style={{ marginTop: 18, background: "rgba(255,255,255,0.15)", borderRadius: 18, padding: 16, textAlign: "center" }}>
-          <p style={{ margin: 0, color: "rgba(255,255,255,0.75)", fontSize: 12 }}>Déficit calorique net du jour</p>
+          <p style={{ margin: 0, color: "rgba(255,255,255,0.75)", fontSize: 12 }}>
+            Déficit calorique net {isToday ? "du jour" : `du ${formatDateLabel(selectedDate).toLowerCase()}`}
+          </p>
           <p style={{ margin: "4px 0 0", color: "white", fontWeight: 900, fontSize: 36 }}>
             {today.deficitNet > 0 ? "−" : "+"}{Math.abs(today.deficitNet)} kcal
           </p>
@@ -73,7 +120,6 @@ export default function Dashboard({ user, onLogout }) {
         </div>
       </div>
 
-      {/* Tabs */}
       <div style={{ display: "flex", margin: "16px 16px 0", background: "white", borderRadius: 12, padding: 4, gap: 3, overflowX: "auto" }}>
         {[["journal", "📓 Journal"], ["repas", "🍽️ Repas"], ["activite", "🏃 Activité"], ["progres", "📊 Progrès"]].map(([key, label]) => (
           <button key={key} onClick={() => setTab(key)} style={{
@@ -86,40 +132,121 @@ export default function Dashboard({ user, onLogout }) {
 
       <div style={{ padding: "14px 16px 80px" }}>
 
-        {/* ── JOURNAL DU JOUR ── */}
         {tab === "journal" && (
           <div>
-            {grouped.map(g => (
-              <Card key={g.value} style={{ marginBottom: 12 }}>
-                <p style={{ margin: "0 0 10px", fontWeight: 700, fontSize: 14 }}>{g.label}</p>
-                {g.repas.length === 0 && <p style={{ color: "#aaa", fontSize: 13, margin: 0 }}>Aucun repas loggé</p>}
-                {g.repas.map(r => (
-                  <div key={r.id} style={{ display: "flex", justifyContent: "space-between", alignItems: "center", padding: "8px 0", borderTop: "1px solid #F0F2FF" }}>
-                    <div>
-                      <p style={{ margin: 0, fontWeight: 600, fontSize: 13 }}>{r.nom_repas}</p>
-                      <p style={{ margin: 0, fontSize: 11, color: "#888" }}>{r.proteines_g}g P · {r.glucides_g}g G · {r.lipides_g}g L</p>
-                    </div>
-                    <div style={{ fontWeight: 800, color: BLUE, fontSize: 15 }}>{r.calories} kcal</div>
-                  </div>
-                ))}
-              </Card>
-            ))}
+            <div style={{ display: "flex", gap: 6, marginBottom: 12 }}>
+              {[["jour", "Jour"], ["semaine", "Semaine"], ["mois", "Mois"]].map(([key, label]) => (
+                <button key={key} onClick={() => setJournalView(key)} style={{
+                  flex: 1, padding: "8px 4px", borderRadius: 10, border: journalView === key ? `2px solid ${BLUE}` : "2px solid #E0E6FF",
+                  background: journalView === key ? BLUE_LIGHT : "white", color: journalView === key ? BLUE : "#888",
+                  fontWeight: 700, fontSize: 12, cursor: "pointer"
+                }}>{label}</button>
+              ))}
+            </div>
 
-            {today.activites.length > 0 && (
-              <Card>
-                <p style={{ margin: "0 0 10px", fontWeight: 700, fontSize: 14 }}>🏃 Activités du jour</p>
-                {today.activites.map(a => (
-                  <div key={a.id} style={{ display: "flex", justifyContent: "space-between", padding: "8px 0", borderTop: "1px solid #F0F2FF" }}>
-                    <p style={{ margin: 0, fontSize: 13, fontWeight: 600, textTransform: "capitalize" }}>{a.type_activite}</p>
-                    <p style={{ margin: 0, fontSize: 13, color: GREEN, fontWeight: 700 }}>−{a.calories_brulees} kcal</p>
+            {journalView === "jour" && (
+              <div>
+                <div style={{ display: "flex", alignItems: "center", justifyContent: "space-between", marginBottom: 14 }}>
+                  <button onClick={() => setSelectedDate(addDays(selectedDate, -1))} style={{
+                    width: 38, height: 38, borderRadius: 12, border: "none", background: "white",
+                    fontSize: 16, cursor: "pointer", boxShadow: "0 2px 8px rgba(59,91,252,0.1)"
+                  }}>←</button>
+
+                  <div onClick={() => setShowDatePicker(!showDatePicker)} style={{ textAlign: "center", cursor: "pointer", flex: 1 }}>
+                    <p style={{ margin: 0, fontWeight: 700, fontSize: 14, color: "#1a1a2e" }}>
+                      📅 {formatDateLabel(selectedDate)}
+                    </p>
                   </div>
+
+                  <button onClick={() => setSelectedDate(addDays(selectedDate, 1))} disabled={isToday} style={{
+                    width: 38, height: 38, borderRadius: 12, border: "none",
+                    background: isToday ? "#F0F2FF" : "white", color: isToday ? "#ccc" : "#1a1a2e",
+                    fontSize: 16, cursor: isToday ? "default" : "pointer", boxShadow: isToday ? "none" : "0 2px 8px rgba(59,91,252,0.1)"
+                  }}>→</button>
+                </div>
+
+                {showDatePicker && (
+                  <Card style={{ marginBottom: 12 }}>
+                    <input
+                      type="date"
+                      value={selectedDate}
+                      max={todayStr()}
+                      onChange={e => { setSelectedDate(e.target.value); setShowDatePicker(false); }}
+                      style={{ width: "100%", padding: 12, borderRadius: 10, border: "2px solid #E0E6FF", fontSize: 16 }}
+                    />
+                  </Card>
+                )}
+
+                {grouped.map(g => (
+                  <Card key={g.value} style={{ marginBottom: 12 }}>
+                    <p style={{ margin: "0 0 10px", fontWeight: 700, fontSize: 14 }}>{g.label}</p>
+                    {g.repas.length === 0 && <p style={{ color: "#aaa", fontSize: 13, margin: 0 }}>Aucun repas loggé</p>}
+                    {g.repas.map(r => (
+                      <div key={r.id} style={{ display: "flex", justifyContent: "space-between", alignItems: "center", padding: "8px 0", borderTop: "1px solid #F0F2FF" }}>
+                        <div>
+                          <p style={{ margin: 0, fontWeight: 600, fontSize: 13 }}>{r.nom_repas}</p>
+                          <p style={{ margin: 0, fontSize: 11, color: "#888" }}>{r.proteines_g}g P · {r.glucides_g}g G · {r.lipides_g}g L</p>
+                        </div>
+                        <div style={{ fontWeight: 800, color: BLUE, fontSize: 15 }}>{r.calories} kcal</div>
+                      </div>
+                    ))}
+                  </Card>
                 ))}
-              </Card>
+
+                {today.activites.length > 0 && (
+                  <Card>
+                    <p style={{ margin: "0 0 10px", fontWeight: 700, fontSize: 14 }}>🏃 Activités</p>
+                    {today.activites.map(a => (
+                      <div key={a.id} style={{ display: "flex", justifyContent: "space-between", padding: "8px 0", borderTop: "1px solid #F0F2FF" }}>
+                        <p style={{ margin: 0, fontSize: 13, fontWeight: 600, textTransform: "capitalize" }}>{a.type_activite}</p>
+                        <p style={{ margin: 0, fontSize: 13, color: GREEN, fontWeight: 700 }}>−{a.calories_brulees} kcal</p>
+                      </div>
+                    ))}
+                  </Card>
+                )}
+              </div>
+            )}
+
+            {(journalView === "semaine" || journalView === "mois") && range && (
+              <div>
+                <Card style={{ marginBottom: 12 }}>
+                  <p style={{ margin: "0 0 4px", fontWeight: 700, fontSize: 14 }}>
+                    {journalView === "semaine" ? "7 derniers jours" : "30 derniers jours"}
+                  </p>
+                  <p style={{ margin: "0 0 12px", fontSize: 12, color: "#888" }}>
+                    Déficit moyen : <span style={{ color: range.deficitMoyen >= 0 ? GREEN : RED, fontWeight: 700 }}>
+                      {range.deficitMoyen >= 0 ? "−" : "+"}{Math.abs(range.deficitMoyen)} kcal/j
+                    </span>
+                  </p>
+                  <DeficitChart jours={range.jours} onDayClick={goToDay} selectedDate={selectedDate} />
+                  <div style={{ display: "flex", gap: 14, marginTop: 10, fontSize: 11, color: "#888" }}>
+                    <span><span style={{ color: GREEN }}>■</span> Déficit</span>
+                    <span><span style={{ color: RED }}>■</span> Surplus</span>
+                  </div>
+                </Card>
+
+                <Card>
+                  <p style={{ margin: "0 0 10px", fontWeight: 700, fontSize: 14 }}>Détail par jour</p>
+                  {range.jours.slice().reverse().map(j => (
+                    <div key={j.date} onClick={() => goToDay(j.date)} style={{
+                      display: "flex", justifyContent: "space-between", alignItems: "center",
+                      padding: "10px 0", borderTop: "1px solid #F0F2FF", cursor: "pointer"
+                    }}>
+                      <div>
+                        <p style={{ margin: 0, fontWeight: 600, fontSize: 13 }}>{formatDateLabel(j.date)}</p>
+                        <p style={{ margin: 0, fontSize: 11, color: "#888" }}>{j.nbRepas} repas loggé{j.nbRepas !== 1 ? "s" : ""}</p>
+                      </div>
+                      <div style={{ fontWeight: 800, fontSize: 14, color: j.deficitNet >= 0 ? GREEN : RED }}>
+                        {j.deficitNet >= 0 ? "−" : "+"}{Math.abs(j.deficitNet)} kcal
+                      </div>
+                    </div>
+                  ))}
+                </Card>
+              </div>
             )}
           </div>
         )}
 
-        {/* ── REPAS ── */}
         {tab === "repas" && (
           <PhotoCapture
             title="Analyse ton repas"
@@ -156,7 +283,6 @@ export default function Dashboard({ user, onLogout }) {
           />
         )}
 
-        {/* ── ACTIVITÉ ── */}
         {tab === "activite" && (
           <PhotoCapture
             title="Capture ton activité"
@@ -185,7 +311,6 @@ export default function Dashboard({ user, onLogout }) {
           />
         )}
 
-        {/* ── PROGRÈS ── */}
         {tab === "progres" && progress && (
           <div>
             <Card style={{ marginBottom: 12 }}>

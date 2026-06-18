@@ -334,6 +334,55 @@ export default function Dashboard({ user, onLogout }) {
               )}
             </Card>
 
+            {progress.recapMensuel && (
+              <Card style={{ marginBottom: 12 }}>
+                <p style={{ margin: "0 0 4px", fontWeight: 700, fontSize: 15 }}>🗓️ Récapitulatif des 30 derniers jours</p>
+                <p style={{ margin: "0 0 14px", fontSize: 12, color: "#888" }}>
+                  {progress.recapMensuel.joursActifs30j} jour{progress.recapMensuel.joursActifs30j !== 1 ? "s" : ""} avec repas loggé{progress.recapMensuel.joursActifs30j !== 1 ? "s" : ""}
+                </p>
+
+                <div style={{ display: "grid", gridTemplateColumns: "1fr 1fr", gap: 10, marginBottom: 12 }}>
+                  <div style={{ background: "#F0FFF4", borderRadius: 12, padding: 12, textAlign: "center" }}>
+                    <div style={{ fontSize: 11, color: "#888" }}>Déficit cumulé</div>
+                    <div style={{ fontWeight: 800, fontSize: 17, color: progress.recapMensuel.deficitCumule30j >= 0 ? GREEN : RED }}>
+                      {progress.recapMensuel.deficitCumule30j >= 0 ? "−" : "+"}{Math.abs(progress.recapMensuel.deficitCumule30j).toLocaleString('fr-FR')} kcal
+                    </div>
+                  </div>
+                  <div style={{ background: "#FFF7ED", borderRadius: 12, padding: 12, textAlign: "center" }}>
+                    <div style={{ fontSize: 11, color: "#888" }}>Perte de gras estimée</div>
+                    <div style={{ fontWeight: 800, fontSize: 17, color: ORANGE }}>
+                      {progress.recapMensuel.perteGrasEstimeeKg >= 0 ? "" : "+"}{Math.abs(progress.recapMensuel.perteGrasEstimeeKg)} kg
+                    </div>
+                  </div>
+                </div>
+
+                <div style={{ display: "flex", justifyContent: "space-between", padding: "8px 0", borderTop: "1px solid #F0F2FF" }}>
+                  <span style={{ fontSize: 13, color: "#888" }}>Poids perdu réel (mesuré)</span>
+                  <span style={{ fontSize: 13, fontWeight: 700 }}>
+                    {progress.recapMensuel.poidsPerduReel > 0 ? "" : ""}{progress.recapMensuel.poidsPerduReel} kg
+                  </span>
+                </div>
+                <div style={{ display: "flex", justifyContent: "space-between", padding: "8px 0", borderTop: "1px solid #F0F2FF" }}>
+                  <span style={{ fontSize: 13, color: "#888" }}>Reste à perdre pour l'objectif</span>
+                  <span style={{ fontSize: 13, fontWeight: 700 }}>{progress.recapMensuel.totalARestant} kg</span>
+                </div>
+
+                <div style={{ marginTop: 12 }}>
+                  <div style={{ display: "flex", justifyContent: "space-between", marginBottom: 6 }}>
+                    <span style={{ fontSize: 11, color: "#888" }}>Progression vers l'objectif</span>
+                    <span style={{ fontSize: 11, color: BLUE, fontWeight: 700 }}>{progress.recapMensuel.progressionPct}%</span>
+                  </div>
+                  <div style={{ background: "#F0F2FF", borderRadius: 99, height: 10, overflow: "hidden" }}>
+                    <div style={{ background: BLUE, height: "100%", width: `${progress.recapMensuel.progressionPct}%`, borderRadius: 99, transition: "width 0.3s" }} />
+                  </div>
+                </div>
+
+                <p style={{ margin: "12px 0 0", fontSize: 11, color: "#aaa" }}>
+                  Estimation théorique basée sur 7700 kcal ≈ 1 kg de masse grasse. Le poids mesuré peut différer (eau, glycogène, masse musculaire).
+                </p>
+              </Card>
+            )}
+
             <Card style={{ marginBottom: 12 }}>
               <p style={{ margin: "0 0 10px", fontWeight: 700, fontSize: 15 }}>📈 Historique du poids</p>
               {progress.history.length === 0 && <p style={{ color: "#aaa", fontSize: 13 }}>Aucune donnée encore. Ajoute ta première pesée ci-dessous.</p>}

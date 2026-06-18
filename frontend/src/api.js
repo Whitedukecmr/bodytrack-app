@@ -33,6 +33,7 @@ export const api = {
   register: (payload) => apiCall('/auth/register', { method: 'POST', body: JSON.stringify(payload) }),
   login: (payload) => apiCall('/auth/login', { method: 'POST', body: JSON.stringify(payload) }),
   me: () => apiCall('/profile/me'),
+  updateProfile: (payload) => apiCall('/profile/me', { method: 'PUT', body: JSON.stringify(payload) }),
   dashboardToday: (date) => apiCall(`/profile/dashboard/today${date ? `?date=${date}` : ''}`),
   dashboardRange: (days, endDate) => apiCall(`/profile/dashboard/range?days=${days}${endDate ? `&endDate=${endDate}` : ''}`),
   dashboardProgress: () => apiCall('/profile/dashboard/progress'),

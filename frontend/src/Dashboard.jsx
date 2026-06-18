@@ -3,6 +3,7 @@ import { api, clearToken } from "./api";
 import { Card, Btn, BLUE, BLUE_LIGHT, GREEN, ORANGE, RED, Select } from "./ui";
 import PhotoCapture from "./PhotoCapture";
 import DeficitChart from "./DeficitChart";
+import EditProfile from "./EditProfile";
 
 const MOMENTS = [
   { value: "matin", label: "🌅 Matin" },
@@ -35,7 +36,8 @@ function formatDateLabel(dateStr) {
   return d.toLocaleDateString('fr-FR', { weekday: 'long', day: 'numeric', month: 'long' });
 }
 
-export default function Dashboard({ user, onLogout }) {
+export default function Dashboard({ user: initialUser, onLogout }) {
+  const [user, setUser] = useState(initialUser);
   const [tab, setTab] = useState("journal");
   const [journalView, setJournalView] = useState("jour");
   const [selectedDate, setSelectedDate] = useState(todayStr());
@@ -45,6 +47,7 @@ export default function Dashboard({ user, onLogout }) {
   const [moment, setMoment] = useState("midi");
   const [activityType, setActivityType] = useState("marche");
   const [showDatePicker, setShowDatePicker] = useState(false);
+  const [showEditProfile, setShowEditProfile] = useState(false);
 
   async function loadDay(date) {
     try {
@@ -89,6 +92,11 @@ export default function Dashboard({ user, onLogout }) {
     setTab("journal");
   }
 
+  async function handleProfileUpdated(updatedUser) {
+    setUser(updatedUser);
+    await refresh();
+  }
+
   if (!today) return <div style={{ padding: 40, textAlign: "center", color: "#888" }}>Chargement...</div>;
 
   const grouped = MOMENTS.map(m => ({ ...m, repas: today.repas.filter(r => r.moment === m.value) }));
@@ -104,7 +112,16 @@ export default function Dashboard({ user, onLogout }) {
             <p style={{ margin: 0, color: "rgba(255,255,255,0.75)", fontSize: 13 }}>Bonjour</p>
             <h2 style={{ margin: "2px 0 0", color: "white", fontWeight: 800, fontSize: 22 }}>{user.prenom} {user.nom}</h2>
           </div>
-          <div onClick={logout} style={{ width: 40, height: 40, borderRadius: "50%", background: "rgba(255,255,255,0.2)", display: "flex", alignItems: "center", justifyContent: "center", fontSize: 18, cursor: "pointer" }}>🚪</div>
+          <div style={{ display: "flex", gap: 8 }}>
+            <div onClick={() => setShowEditProfile(true)} style={{
+              width: 40, height: 40, borderRadius: "50%", background: "rgba(255,255,255,0.2)",
+              display: "flex", alignItems: "center", justifyContent: "center", fontSize: 17, cursor: "pointer"
+            }}>⚙️</div>
+            <div onClick={logout} style={{
+              width: 40, height: 40, borderRadius: "50%", background: "rgba(255,255,255,0.2)",
+              display: "flex", alignItems: "center", justifyContent: "center", fontSize: 18, cursor: "pointer"
+            }}>🚪</div>
+          </div>
         </div>
 
         <div style={{ marginTop: 18, background: "rgba(255,255,255,0.15)", borderRadius: 18, padding: 16, textAlign: "center" }}>
@@ -358,9 +375,7 @@ export default function Dashboard({ user, onLogout }) {
 
                 <div style={{ display: "flex", justifyContent: "space-between", padding: "8px 0", borderTop: "1px solid #F0F2FF" }}>
                   <span style={{ fontSize: 13, color: "#888" }}>Poids perdu réel (mesuré)</span>
-                  <span style={{ fontSize: 13, fontWeight: 700 }}>
-                    {progress.recapMensuel.poidsPerduReel > 0 ? "" : ""}{progress.recapMensuel.poidsPerduReel} kg
-                  </span>
+                  <span style={{ fontSize: 13, fontWeight: 700 }}>{progress.recapMensuel.poidsPerduReel} kg</span>
                 </div>
                 <div style={{ display: "flex", justifyContent: "space-between", padding: "8px 0", borderTop: "1px solid #F0F2FF" }}>
                   <span style={{ fontSize: 13, color: "#888" }}>Reste à perdre pour l'objectif</span>
@@ -432,6 +447,14 @@ export default function Dashboard({ user, onLogout }) {
           </div>
         )}
       </div>
+
+      {showEditProfile && (
+        <EditProfile
+          user={user}
+          onClose={() => setShowEditProfile(false)}
+          onUpdated={handleProfileUpdated}
+        />
+      )}
     </div>
   );
 }

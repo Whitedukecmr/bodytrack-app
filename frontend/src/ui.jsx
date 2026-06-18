@@ -61,3 +61,12 @@ export function ErrorBox({ children }) {
     </div>
   );
 }
+
+export function SuccessBox({ children }) {
+  if (!children) return null;
+  return (
+    <div style={{ background: "#F0FFF4", borderRadius: 12, padding: 14, color: "#166534", fontSize: 14, marginBottom: 12 }}>
+      {children}
+    </div>
+  );
+}

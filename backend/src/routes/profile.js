@@ -19,6 +19,42 @@ router.get('/me', async (req, res) => {
   }
 });
 
+// Mise à jour du profil (âge, taille, niveau d'activité, objectif...)
+// Le poids n'est volontairement pas modifiable ici : il évolue via les pesées (body_composition)
+router.put('/me', async (req, res) => {
+  try {
+    const { prenom, nom, sexe, age, taille_cm, poids_objectif_kg, niveau_activite } = req.body;
+
+    const niveauxValides = ['sedentaire', 'leger', 'modere', 'actif', 'tres_actif'];
+    if (niveau_activite && !niveauxValides.includes(niveau_activite)) {
+      return res.status(400).json({ error: 'Niveau d\'activité invalide' });
+    }
+    if (sexe && !['homme', 'femme'].includes(sexe)) {
+      return res.status(400).json({ error: 'Sexe invalide' });
+    }
+
+    const result = await pool.query(
+      `UPDATE users SET
+        prenom = COALESCE($1, prenom),
+        nom = COALESCE($2, nom),
+        sexe = COALESCE($3, sexe),
+        age = COALESCE($4, age),
+        taille_cm = COALESCE($5, taille_cm),
+        poids_objectif_kg = COALESCE($6, poids_objectif_kg),
+        niveau_activite = COALESCE($7, niveau_activite)
+      WHERE id = $8
+      RETURNING id, email, prenom, nom, sexe, age, taille_cm, poids_initial_kg, poids_objectif_kg, niveau_activite`,
+      [prenom, nom, sexe, age, taille_cm, poids_objectif_kg, niveau_activite, req.userId]
+    );
+
+    if (result.rows.length === 0) return res.status(404).json({ error: 'Utilisateur introuvable' });
+    res.json(result.rows[0]);
+  } catch (err) {
+    console.error('Erreur update profil:', err.message);
+    res.status(500).json({ error: err.message });
+  }
+});
+
 // Dashboard d'un jour donné (par défaut aujourd'hui) : déficit calorique net, repas, activité
 // Query param optionnel ?date=YYYY-MM-DD pour naviguer vers un autre jour
 router.get('/dashboard/today', async (req, res) => {
@@ -62,7 +98,6 @@ router.get('/dashboard/today', async (req, res) => {
     const caloriesIngerees = mealsResult.rows.reduce((sum, m) => sum + (m.calories || 0), 0);
     const caloriesActivite = activitiesResult.rows.reduce((sum, a) => sum + (a.calories_brulees || 0), 0);
 
-    // Dépense du jour = TDEE (métabolisme de base + NEAT estimé) + activité spécifique loggée en plus
     const depenseDuJour = tdee + caloriesActivite;
     const deficitNet = depenseDuJour - caloriesIngerees;
 
@@ -89,7 +124,6 @@ router.get('/dashboard/today', async (req, res) => {
 });
 
 // Vue agrégée sur une plage de jours (semaine ou mois) : un point par jour
-// Query params : ?days=7 ou ?days=30, optionnel ?endDate=YYYY-MM-DD (par défaut aujourd'hui)
 router.get('/dashboard/range', async (req, res) => {
   try {
     const days = Math.min(Math.max(parseInt(req.query.days) || 7, 1), 90);
@@ -99,7 +133,6 @@ router.get('/dashboard/range', async (req, res) => {
     const user = userResult.rows[0];
     if (!user) return res.status(404).json({ error: 'Utilisateur introuvable' });
 
-    // Toutes les dates de la plage, même celles sans aucune donnée (LEFT JOIN via generate_series)
     const result = await pool.query(
       `WITH jours AS (
         SELECT generate_series($2::date - ($3::int - 1), $2::date, '1 day')::date AS jour
@@ -128,7 +161,6 @@ router.get('/dashboard/range', async (req, res) => {
       [req.userId, endDate, days]
     );
 
-    // Dernier poids connu pour calculer un TDEE de référence (approximation sur toute la plage)
     const bodyResult = await pool.query(
       `SELECT * FROM body_composition WHERE user_id = $1 AND logged_at::date <= $2 ORDER BY logged_at DESC LIMIT 1`,
       [req.userId, endDate]
@@ -159,8 +191,7 @@ router.get('/dashboard/range', async (req, res) => {
   }
 });
 
-// Historique de progression (poids + composition corporelle au fil du temps)
-// + récapitulatif mensuel : déficit cumulé, perte de poids réelle, estimation perte de gras, projection objectif
+// Historique de progression + récapitulatif mensuel
 router.get('/dashboard/progress', async (req, res) => {
   try {
     const bodyResult = await pool.query(
@@ -174,7 +205,6 @@ router.get('/dashboard/progress', async (req, res) => {
     const history = bodyResult.rows;
     const poidsActuel = Number(history.length > 0 ? history[history.length - 1].poids_kg : user.poids_initial_kg);
 
-    // Déficit moyen sur les 7 derniers jours pour estimer le rythme à court terme
     const deficitSemaineResult = await pool.query(
       `SELECT COALESCE(SUM(m.calories), 0) as total_ingere
        FROM meals m
@@ -194,12 +224,10 @@ router.get('/dashboard/progress', async (req, res) => {
 
     const semainesRestantes = estimateWeeksToGoal(poidsActuel, user.poids_objectif_kg, deficitMoyenJournalier);
 
-    // ── Récapitulatif des 30 derniers jours ──────────────────────
     const debut30j = new Date();
     debut30j.setDate(debut30j.getDate() - 30);
     const debut30jStr = debut30j.toISOString().slice(0, 10);
 
-    // Déficit cumulé réel sur 30 jours (somme jour par jour, calories ingérées vs TDEE de référence)
     const recapResult = await pool.query(
       `SELECT COALESCE(SUM(m.calories), 0) AS total_ingere_30j, COUNT(DISTINCT m.logged_at::date) AS jours_actifs
        FROM meals m
@@ -215,11 +243,9 @@ router.get('/dashboard/progress', async (req, res) => {
     const joursActifs30j = Number(recapResult.rows[0].jours_actifs);
     const totalIngere30j = Number(recapResult.rows[0].total_ingere_30j);
     const totalActivite30j = Number(activite30jResult.rows[0].total_activite_30j);
-    // Dépense estimée sur les jours réellement loggés (TDEE par jour actif + activité loggée)
     const depenseEstimee30j = (tdee * joursActifs30j) + totalActivite30j;
     const deficitCumule30j = Math.round(depenseEstimee30j - totalIngere30j);
 
-    // Poids le plus ancien dans les 30 derniers jours (ou poids initial si aucune pesée)
     const poidsIl30jResult = await pool.query(
       `SELECT poids_kg FROM body_composition WHERE user_id = $1 AND logged_at >= $2 ORDER BY logged_at ASC LIMIT 1`,
       [req.userId, debut30jStr]
@@ -227,7 +253,6 @@ router.get('/dashboard/progress', async (req, res) => {
     const poidsDebutPeriode = Number(poidsIl30jResult.rows[0]?.poids_kg ?? user.poids_initial_kg);
     const poidsPerduReel = +(poidsDebutPeriode - poidsActuel).toFixed(1);
 
-    // Estimation théorique de perte de gras à partir du déficit cumulé (7700 kcal ≈ 1kg de masse grasse)
     const perteGrasEstimeeKg = +(deficitCumule30j / 7700).toFixed(1);
 
     const totalARestant = +(poidsActuel - user.poids_objectif_kg).toFixed(1);

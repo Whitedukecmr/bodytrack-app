@@ -7,6 +7,7 @@ const authRoutes = require('./routes/auth');
 const profileRoutes = require('./routes/profile');
 const visionRoutes = require('./routes/vision');
 const cronRoutes = require('./routes/cron');
+const entriesRoutes = require('./routes/entries');
 
 const app = express();
 app.use(cors({ origin: '*' }));
@@ -16,10 +17,10 @@ app.use('/api/auth', authRoutes);
 app.use('/api/profile', profileRoutes);
 app.use('/api/vision', visionRoutes);
 app.use('/api/cron', cronRoutes);
+app.use('/api/entries', entriesRoutes);
 
 app.get('/health', (req, res) => res.json({ status: 'ok' }));
 
-// Initialise le schéma DB au démarrage si besoin
 async function initDb() {
   try {
     const schema = fs.readFileSync(__dirname + '/db/schema.sql', 'utf8');

@@ -41,6 +41,11 @@ export const api = {
   analyzeMealText: (description, moment) => apiCall('/vision/meal-text', { method: 'POST', body: JSON.stringify({ description, moment }) }),
   analyzeActivity: (imageBase64, type_activite) => apiCall('/vision/activity', { method: 'POST', body: JSON.stringify({ imageBase64, type_activite }) }),
   analyzeBodyComposition: (imageBase64) => apiCall('/vision/body-composition', { method: 'POST', body: JSON.stringify({ imageBase64 }) }),
+  updateMeal: (id, payload) => apiCall(`/entries/meals/${id}`, { method: 'PUT', body: JSON.stringify(payload) }),
+  deleteMeal: (id) => apiCall(`/entries/meals/${id}`, { method: 'DELETE' }),
+  updateActivity: (id, payload) => apiCall(`/entries/activities/${id}`, { method: 'PUT', body: JSON.stringify(payload) }),
+  deleteActivity: (id) => apiCall(`/entries/activities/${id}`, { method: 'DELETE' }),
+  deleteBodyComposition: (id) => apiCall(`/entries/body-composition/${id}`, { method: 'DELETE' }),
 };
 
 export { getToken, setToken, clearToken };

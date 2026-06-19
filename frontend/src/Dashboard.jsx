@@ -1,9 +1,11 @@
 import { useState, useEffect } from "react";
 import { api, clearToken } from "./api";
-import { Card, Btn, BLUE, BLUE_LIGHT, GREEN, ORANGE, RED, Select } from "./ui";
+import { Card, BLUE, BLUE_LIGHT, GREEN, ORANGE, RED, Select } from "./ui";
 import PhotoCapture from "./PhotoCapture";
 import DeficitChart from "./DeficitChart";
+import WeightChart from "./WeightChart";
 import EditProfile from "./EditProfile";
+import EditMealModal from "./EditMealModal";
 import BilanComplet from "./BilanComplet";
 import MealTextEntry from "./MealTextEntry";
 
@@ -51,6 +53,7 @@ export default function Dashboard({ user: initialUser, onLogout }) {
   const [activityType, setActivityType] = useState("marche");
   const [showDatePicker, setShowDatePicker] = useState(false);
   const [showEditProfile, setShowEditProfile] = useState(false);
+  const [editingMeal, setEditingMeal] = useState(null);
 
   async function loadDay(date) {
     try {
@@ -100,6 +103,22 @@ export default function Dashboard({ user: initialUser, onLogout }) {
     await refresh();
   }
 
+  async function handleMealSaved(id, payload) {
+    await api.updateMeal(id, payload);
+    await refresh();
+  }
+
+  async function handleMealDeleted(id) {
+    await api.deleteMeal(id);
+    await refresh();
+  }
+
+  async function handleDeleteBodyComposition(id) {
+    await api.deleteBodyComposition(id);
+    await loadProgress();
+    await loadDay(selectedDate);
+  }
+
   function renderMealResult(r) {
     return (
       <Card>
@@ -133,6 +152,7 @@ export default function Dashboard({ user: initialUser, onLogout }) {
 
   const grouped = MOMENTS.map(m => ({ ...m, repas: today.repas.filter(r => r.moment === m.value) }));
   const isToday = selectedDate === todayStr();
+  const objectifs = today.objectifs || {};
 
   return (
     <div style={{ minHeight: "100vh", background: "#F4F6FF", fontFamily: "'Sora', sans-serif" }}>
@@ -167,6 +187,26 @@ export default function Dashboard({ user: initialUser, onLogout }) {
             Dépense {today.depenseDuJour} kcal · Ingéré {today.caloriesIngerees} kcal
           </p>
         </div>
+
+        {objectifs.proteines_g && (
+          <div style={{ marginTop: 10, background: "rgba(255,255,255,0.12)", borderRadius: 14, padding: 12 }}>
+            <div style={{ display: "flex", justifyContent: "space-between", marginBottom: 6 }}>
+              <span style={{ fontSize: 11, color: "rgba(255,255,255,0.75)" }}>
+                Protéines {!objectifs.proteines_personnalise && "(objectif estimé)"}
+              </span>
+              <span style={{ fontSize: 11, color: "white", fontWeight: 700 }}>
+                {today.bilan?.proteinesTotales ?? 0} / {objectifs.proteines_g}g
+              </span>
+            </div>
+            <div style={{ background: "rgba(255,255,255,0.2)", borderRadius: 99, height: 8, overflow: "hidden" }}>
+              <div style={{
+                background: "white", height: "100%", borderRadius: 99,
+                width: `${Math.min(100, ((today.bilan?.proteinesTotales ?? 0) / objectifs.proteines_g) * 100)}%`,
+                transition: "width 0.3s"
+              }} />
+            </div>
+          </div>
+        )}
       </div>
 
       <div style={{ display: "flex", margin: "16px 16px 0", background: "white", borderRadius: 12, padding: 4, gap: 3, overflowX: "auto" }}>
@@ -231,12 +271,18 @@ export default function Dashboard({ user: initialUser, onLogout }) {
                     <p style={{ margin: "0 0 10px", fontWeight: 700, fontSize: 14 }}>{g.label}</p>
                     {g.repas.length === 0 && <p style={{ color: "#aaa", fontSize: 13, margin: 0 }}>Aucun repas loggé</p>}
                     {g.repas.map(r => (
-                      <div key={r.id} style={{ display: "flex", justifyContent: "space-between", alignItems: "center", padding: "8px 0", borderTop: "1px solid #F0F2FF" }}>
+                      <div key={r.id} onClick={() => setEditingMeal(r)} style={{
+                        display: "flex", justifyContent: "space-between", alignItems: "center",
+                        padding: "8px 0", borderTop: "1px solid #F0F2FF", cursor: "pointer"
+                      }}>
                         <div>
                           <p style={{ margin: 0, fontWeight: 600, fontSize: 13 }}>{r.nom_repas}</p>
                           <p style={{ margin: 0, fontSize: 11, color: "#888" }}>{r.proteines_g}g P · {r.glucides_g}g G · {r.lipides_g}g L</p>
                         </div>
-                        <div style={{ fontWeight: 800, color: BLUE, fontSize: 15 }}>{r.calories} kcal</div>
+                        <div style={{ display: "flex", alignItems: "center", gap: 8 }}>
+                          <div style={{ fontWeight: 800, color: BLUE, fontSize: 15 }}>{r.calories} kcal</div>
+                          <span style={{ color: "#ccc", fontSize: 13 }}>✎</span>
+                        </div>
                       </div>
                     ))}
                   </Card>
@@ -434,13 +480,21 @@ export default function Dashboard({ user: initialUser, onLogout }) {
             )}
 
             <Card style={{ marginBottom: 12 }}>
-              <p style={{ margin: "0 0 10px", fontWeight: 700, fontSize: 15 }}>📈 Historique du poids</p>
+              <p style={{ margin: "0 0 10px", fontWeight: 700, fontSize: 15 }}>📈 Évolution du poids</p>
+              {progress.history.length < 2
+                ? <p style={{ color: "#aaa", fontSize: 13 }}>Au moins 2 pesées sont nécessaires pour afficher une courbe.</p>
+                : <WeightChart history={progress.history} poidsObjectif={progress.poidsObjectif} />}
+            </Card>
+
+            <Card style={{ marginBottom: 12 }}>
+              <p style={{ margin: "0 0 10px", fontWeight: 700, fontSize: 15 }}>Historique des pesées</p>
               {progress.history.length === 0 && <p style={{ color: "#aaa", fontSize: 13 }}>Aucune donnée encore. Ajoute ta première pesée ci-dessous.</p>}
               {progress.history.slice().reverse().slice(0, 5).map(h => (
-                <div key={h.id} style={{ display: "flex", justifyContent: "space-between", padding: "8px 0", borderTop: "1px solid #F0F2FF" }}>
+                <div key={h.id} style={{ display: "flex", justifyContent: "space-between", alignItems: "center", padding: "8px 0", borderTop: "1px solid #F0F2FF" }}>
                   <span style={{ fontSize: 13, color: "#888" }}>{new Date(h.logged_at).toLocaleDateString('fr-FR')}</span>
                   <span style={{ fontSize: 13, fontWeight: 700 }}>{h.poids_kg} kg</span>
                   {h.masse_grasse_pct && <span style={{ fontSize: 12, color: ORANGE }}>{h.masse_grasse_pct}% MG</span>}
+                  <span onClick={() => handleDeleteBodyComposition(h.id)} style={{ color: RED, fontSize: 13, cursor: "pointer" }}>🗑️</span>
                 </div>
               ))}
             </Card>
@@ -488,6 +542,15 @@ export default function Dashboard({ user: initialUser, onLogout }) {
           user={user}
           onClose={() => setShowEditProfile(false)}
           onUpdated={handleProfileUpdated}
+        />
+      )}
+
+      {editingMeal && (
+        <EditMealModal
+          meal={editingMeal}
+          onClose={() => setEditingMeal(null)}
+          onSaved={handleMealSaved}
+          onDeleted={handleMealDeleted}
         />
       )}
     </div>

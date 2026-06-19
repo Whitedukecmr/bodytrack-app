@@ -19,6 +19,7 @@ export default function EditProfile({ user, onClose, onUpdated }) {
     taille_cm: user.taille_cm,
     poids_objectif_kg: user.poids_objectif_kg,
     niveau_activite: user.niveau_activite,
+    objectif_proteines_g: user.objectif_proteines_g || "",
   });
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState(null);
@@ -36,6 +37,7 @@ export default function EditProfile({ user, onClose, onUpdated }) {
         age: Number(form.age),
         taille_cm: Number(form.taille_cm),
         poids_objectif_kg: Number(form.poids_objectif_kg),
+        objectif_proteines_g: form.objectif_proteines_g ? Number(form.objectif_proteines_g) : null,
       };
       const updated = await api.updateProfile(payload);
       setSuccess(true);
@@ -76,6 +78,7 @@ export default function EditProfile({ user, onClose, onUpdated }) {
         <Field label="Taille" value={form.taille_cm} onChange={set("taille_cm")} type="number" unit="cm" />
         <Field label="Poids objectif" value={form.poids_objectif_kg} onChange={set("poids_objectif_kg")} type="number" unit="kg" />
         <Select label="Niveau d'activité" value={form.niveau_activite} onChange={set("niveau_activite")} options={NIVEAUX_ACTIVITE} />
+        <Field label="Objectif protéines (laisser vide pour estimation auto)" value={form.objectif_proteines_g} onChange={set("objectif_proteines_g")} type="number" unit="g/jour" placeholder="Ex: 150" />
 
         <p style={{ fontSize: 12, color: "#aaa", margin: "0 0 16px" }}>
           Le poids actuel n'est pas modifiable ici — il se met à jour automatiquement via tes pesées dans l'onglet Progrès.

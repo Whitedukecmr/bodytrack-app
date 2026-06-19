@@ -1,7 +1,7 @@
 const express = require('express');
 const pool = require('../db/pool');
 const { requireAuth } = require('../middleware/auth');
-const { calcBMR, calcTDEE, calcBMI, estimateWeeksToGoal } = require('../utils/metabolic');
+const { calcBMR, calcTDEE, calcBMI, estimateWeeksToGoal, defaultProteinGoal } = require('../utils/metabolic');
 const { analyzeBilan } = require('../utils/coach');
 
 const router = express.Router();
@@ -10,7 +10,9 @@ router.use(requireAuth);
 router.get('/me', async (req, res) => {
   try {
     const result = await pool.query(
-      'SELECT id, email, prenom, nom, sexe, age, taille_cm, poids_initial_kg, poids_objectif_kg, niveau_activite FROM users WHERE id = $1',
+      `SELECT id, email, prenom, nom, sexe, age, taille_cm, poids_initial_kg, poids_objectif_kg,
+              niveau_activite, objectif_proteines_g, objectif_glucides_g, objectif_lipides_g
+       FROM users WHERE id = $1`,
       [req.userId]
     );
     if (result.rows.length === 0) return res.status(404).json({ error: 'Utilisateur introuvable' });
@@ -20,11 +22,12 @@ router.get('/me', async (req, res) => {
   }
 });
 
-// Mise à jour du profil (âge, taille, niveau d'activité, objectif...)
-// Le poids n'est volontairement pas modifiable ici : il évolue via les pesées (body_composition)
 router.put('/me', async (req, res) => {
   try {
-    const { prenom, nom, sexe, age, taille_cm, poids_objectif_kg, niveau_activite } = req.body;
+    const {
+      prenom, nom, sexe, age, taille_cm, poids_objectif_kg, niveau_activite,
+      objectif_proteines_g, objectif_glucides_g, objectif_lipides_g
+    } = req.body;
 
     const niveauxValides = ['sedentaire', 'leger', 'modere', 'actif', 'tres_actif'];
     if (niveau_activite && !niveauxValides.includes(niveau_activite)) {
@@ -42,10 +45,15 @@ router.put('/me', async (req, res) => {
         age = COALESCE($4, age),
         taille_cm = COALESCE($5, taille_cm),
         poids_objectif_kg = COALESCE($6, poids_objectif_kg),
-        niveau_activite = COALESCE($7, niveau_activite)
-      WHERE id = $8
-      RETURNING id, email, prenom, nom, sexe, age, taille_cm, poids_initial_kg, poids_objectif_kg, niveau_activite`,
-      [prenom, nom, sexe, age, taille_cm, poids_objectif_kg, niveau_activite, req.userId]
+        niveau_activite = COALESCE($7, niveau_activite),
+        objectif_proteines_g = $8,
+        objectif_glucides_g = $9,
+        objectif_lipides_g = $10
+      WHERE id = $11
+      RETURNING id, email, prenom, nom, sexe, age, taille_cm, poids_initial_kg, poids_objectif_kg,
+                niveau_activite, objectif_proteines_g, objectif_glucides_g, objectif_lipides_g`,
+      [prenom, nom, sexe, age, taille_cm, poids_objectif_kg, niveau_activite,
+       objectif_proteines_g ?? null, objectif_glucides_g ?? null, objectif_lipides_g ?? null, req.userId]
     );
 
     if (result.rows.length === 0) return res.status(404).json({ error: 'Utilisateur introuvable' });
@@ -56,17 +64,14 @@ router.put('/me', async (req, res) => {
   }
 });
 
-// Dashboard d'un jour donné (par défaut aujourd'hui) : déficit calorique net, repas, activité
-// Query param optionnel ?date=YYYY-MM-DD pour naviguer vers un autre jour
 router.get('/dashboard/today', async (req, res) => {
   try {
-    const targetDate = req.query.date || null; // null = CURRENT_DATE côté SQL
+    const targetDate = req.query.date || null;
 
     const userResult = await pool.query('SELECT * FROM users WHERE id = $1', [req.userId]);
     const user = userResult.rows[0];
     if (!user) return res.status(404).json({ error: 'Utilisateur introuvable' });
 
-    // Dernière composition corporelle connue à cette date (ou avant), sinon poids initial du profil
     const bodyResult = await pool.query(
       targetDate
         ? `SELECT * FROM body_composition WHERE user_id = $1 AND logged_at::date <= $2 ORDER BY logged_at DESC LIMIT 1`
@@ -75,12 +80,7 @@ router.get('/dashboard/today', async (req, res) => {
     );
     const dernierPoids = Number(bodyResult.rows[0]?.poids_kg ?? user.poids_initial_kg);
 
-    const bmr = calcBMR({
-      sexe: user.sexe,
-      age: user.age,
-      taille_cm: user.taille_cm,
-      poids_kg: dernierPoids,
-    });
+    const bmr = calcBMR({ sexe: user.sexe, age: user.age, taille_cm: user.taille_cm, poids_kg: dernierPoids });
     const tdee = calcTDEE(bmr, user.niveau_activite);
 
     const mealsResult = await pool.query(
@@ -104,42 +104,34 @@ router.get('/dashboard/today', async (req, res) => {
 
     const depenseDuJour = tdee + caloriesActivite;
     const deficitNet = depenseDuJour - caloriesIngerees;
-
     const bmi = calcBMI(dernierPoids, user.taille_cm);
 
     const analyseCoach = analyzeBilan({
-      deficitNet,
-      caloriesIngerees,
-      proteinesTotales,
-      glucidesTotales,
-      lipidesTotales,
+      deficitNet, caloriesIngerees, proteinesTotales, glucidesTotales, lipidesTotales,
       nbRepas: mealsResult.rows.length,
       joursAvecDonnees: caloriesIngerees > 0 ? 1 : 0,
     });
 
+    const objectifs = {
+      proteines_g: user.objectif_proteines_g != null ? Number(user.objectif_proteines_g) : defaultProteinGoal(dernierPoids),
+      glucides_g: user.objectif_glucides_g != null ? Number(user.objectif_glucides_g) : null,
+      lipides_g: user.objectif_lipides_g != null ? Number(user.objectif_lipides_g) : null,
+      proteines_personnalise: user.objectif_proteines_g != null,
+    };
+
     res.json({
       date: targetDate || new Date().toISOString().slice(0, 10),
-      bmr,
-      tdee,
-      caloriesIngerees,
-      caloriesActivite,
-      depenseDuJour,
-      deficitNet,
-      bmi,
+      bmr, tdee, caloriesIngerees, caloriesActivite, depenseDuJour, deficitNet, bmi,
       poidsActuel: dernierPoids,
       poidsObjectif: user.poids_objectif_kg,
       repas: mealsResult.rows,
       activites: activitiesResult.rows,
+      objectifs,
       bilan: {
         proteinesTotales: +proteinesTotales.toFixed(1),
         glucidesTotales: +glucidesTotales.toFixed(1),
         lipidesTotales: +lipidesTotales.toFixed(1),
-        caloriesIngerees,
-        bmr,
-        caloriesActivite,
-        depenseDuJour,
-        deficitNet,
-        analyseCoach,
+        caloriesIngerees, bmr, caloriesActivite, depenseDuJour, deficitNet, analyseCoach,
       },
     });
   } catch (err) {
@@ -148,7 +140,6 @@ router.get('/dashboard/today', async (req, res) => {
   }
 });
 
-// Vue agrégée sur une plage de jours (semaine ou mois) : un point par jour
 router.get('/dashboard/range', async (req, res) => {
   try {
     const days = Math.min(Math.max(parseInt(req.query.days) || 7, 1), 90);
@@ -205,15 +196,13 @@ router.get('/dashboard/range', async (req, res) => {
         date: r.jour.toISOString().slice(0, 10),
         caloriesIngerees: Number(r.calories_ingerees),
         caloriesActivite: Number(r.calories_activite),
-        depenseDuJour,
-        deficitNet,
+        depenseDuJour, deficitNet,
         nbRepas: Number(r.nb_repas),
       };
     });
 
     const deficitMoyen = jours.reduce((sum, j) => sum + j.deficitNet, 0) / jours.length;
 
-    // Bilan agrégé sur toute la période (pour la synthèse "coach" semaine/mois)
     const caloriesIngereesTotal = result.rows.reduce((sum, r) => sum + Number(r.calories_ingerees), 0);
     const proteinesTotales = result.rows.reduce((sum, r) => sum + Number(r.proteines), 0);
     const glucidesTotales = result.rows.reduce((sum, r) => sum + Number(r.glucides), 0);
@@ -224,11 +213,8 @@ router.get('/dashboard/range', async (req, res) => {
     const deficitNetTotal = Math.round(depenseTotale - caloriesIngereesTotal);
 
     const analyseCoach = analyzeBilan({
-      deficitNet: deficitNetTotal,
-      caloriesIngerees: caloriesIngereesTotal,
-      proteinesTotales,
-      glucidesTotales,
-      lipidesTotales,
+      deficitNet: deficitNetTotal, caloriesIngerees: caloriesIngereesTotal,
+      proteinesTotales, glucidesTotales, lipidesTotales,
       nbRepas: result.rows.reduce((sum, r) => sum + Number(r.nb_repas), 0),
       joursAvecDonnees,
     });
@@ -239,13 +225,10 @@ router.get('/dashboard/range', async (req, res) => {
         proteinesTotales: +proteinesTotales.toFixed(1),
         glucidesTotales: +glucidesTotales.toFixed(1),
         lipidesTotales: +lipidesTotales.toFixed(1),
-        caloriesIngerees: caloriesIngereesTotal,
-        bmr,
+        caloriesIngerees: caloriesIngereesTotal, bmr,
         caloriesActivite: caloriesActiviteTotal,
         depenseDuJour: Math.round(depenseTotale),
-        deficitNet: deficitNetTotal,
-        joursAvecDonnees,
-        analyseCoach,
+        deficitNet: deficitNetTotal, joursAvecDonnees, analyseCoach,
       },
     });
   } catch (err) {
@@ -254,7 +237,6 @@ router.get('/dashboard/range', async (req, res) => {
   }
 });
 
-// Historique de progression + récapitulatif mensuel
 router.get('/dashboard/progress', async (req, res) => {
   try {
     const bodyResult = await pool.query(
@@ -270,17 +252,11 @@ router.get('/dashboard/progress', async (req, res) => {
 
     const deficitSemaineResult = await pool.query(
       `SELECT COALESCE(SUM(m.calories), 0) as total_ingere
-       FROM meals m
-       WHERE m.user_id = $1 AND m.logged_at > NOW() - INTERVAL '7 days'`,
+       FROM meals m WHERE m.user_id = $1 AND m.logged_at > NOW() - INTERVAL '7 days'`,
       [req.userId]
     );
 
-    const bmr = calcBMR({
-      sexe: user.sexe,
-      age: user.age,
-      taille_cm: user.taille_cm,
-      poids_kg: poidsActuel,
-    });
+    const bmr = calcBMR({ sexe: user.sexe, age: user.age, taille_cm: user.taille_cm, poids_kg: poidsActuel });
     const tdee = calcTDEE(bmr, user.niveau_activite);
     const totalIngereSemaine = +deficitSemaineResult.rows[0].total_ingere;
     const deficitMoyenJournalier = tdee - (totalIngereSemaine / 7);
@@ -293,8 +269,7 @@ router.get('/dashboard/progress', async (req, res) => {
 
     const recapResult = await pool.query(
       `SELECT COALESCE(SUM(m.calories), 0) AS total_ingere_30j, COUNT(DISTINCT m.logged_at::date) AS jours_actifs
-       FROM meals m
-       WHERE m.user_id = $1 AND m.logged_at >= $2`,
+       FROM meals m WHERE m.user_id = $1 AND m.logged_at >= $2`,
       [req.userId, debut30jStr]
     );
     const activite30jResult = await pool.query(
@@ -331,12 +306,7 @@ router.get('/dashboard/progress', async (req, res) => {
       deficitMoyenJournalier: Math.round(deficitMoyenJournalier),
       semainesRestantes,
       recapMensuel: {
-        joursActifs30j,
-        deficitCumule30j,
-        poidsPerduReel,
-        perteGrasEstimeeKg,
-        totalARestant,
-        progressionPct,
+        joursActifs30j, deficitCumule30j, poidsPerduReel, perteGrasEstimeeKg, totalARestant, progressionPct,
       },
     });
   } catch (err) {

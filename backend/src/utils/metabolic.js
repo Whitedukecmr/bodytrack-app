@@ -1,6 +1,3 @@
-// ── Calculs métaboliques ──────────────────────────────────────
-
-// Formule de Mifflin-St Jeor (la plus précise et utilisée cliniquement)
 function calcBMR({ sexe, poids_kg, taille_cm, age }) {
   const p = Number(poids_kg);
   const t = Number(taille_cm);
@@ -9,7 +6,6 @@ function calcBMR({ sexe, poids_kg, taille_cm, age }) {
   return Math.round(sexe === 'femme' ? base - 161 : base + 5);
 }
 
-// Facteurs d'activité (NEAT inclus dans le multiplicateur de base)
 const ACTIVITY_FACTORS = {
   sedentaire: 1.2,
   leger: 1.375,
@@ -28,8 +24,6 @@ function calcBMI(poids_kg, taille_cm) {
   return +(poids_kg / (h * h)).toFixed(1);
 }
 
-// Estimation du temps restant pour atteindre l'objectif
-// Hypothèse : 1kg de masse grasse ≈ 7700 kcal
 function estimateWeeksToGoal(poidsActuel, poidsObjectif, deficitMoyenJournalier) {
   if (deficitMoyenJournalier <= 0) return null;
   const kgARestants = poidsActuel - poidsObjectif;
@@ -39,4 +33,9 @@ function estimateWeeksToGoal(poidsActuel, poidsObjectif, deficitMoyenJournalier)
   return Math.ceil(jours / 7);
 }
 
-module.exports = { calcBMR, calcTDEE, calcBMI, estimateWeeksToGoal, ACTIVITY_FACTORS };
+// Objectif protéines par défaut si non personnalisé : ~1.8g/kg de poids (recomposition corporelle standard)
+function defaultProteinGoal(poids_kg) {
+  return Math.round(Number(poids_kg) * 1.8);
+}
+
+module.exports = { calcBMR, calcTDEE, calcBMI, estimateWeeksToGoal, defaultProteinGoal, ACTIVITY_FACTORS };

@@ -8,20 +8,25 @@ CREATE TABLE IF NOT EXISTS users (
   password_hash VARCHAR(255) NOT NULL,
   prenom VARCHAR(100) NOT NULL,
   nom VARCHAR(100) NOT NULL,
-  sexe VARCHAR(10) NOT NULL DEFAULT 'homme',      -- homme / femme
+  sexe VARCHAR(10) NOT NULL DEFAULT 'homme',
   age INT NOT NULL,
   taille_cm NUMERIC(5,1) NOT NULL,
   poids_initial_kg NUMERIC(5,1) NOT NULL,
   poids_objectif_kg NUMERIC(5,1) NOT NULL,
-  niveau_activite VARCHAR(20) NOT NULL DEFAULT 'modere', -- sedentaire/leger/modere/actif/tres_actif
+  niveau_activite VARCHAR(20) NOT NULL DEFAULT 'modere',
   created_at TIMESTAMP DEFAULT NOW()
 );
 
--- Repas analysés par photo (IA Vision)
+-- Objectifs de macros quotidiens, ajoutés après coup — colonnes nullable,
+-- NULL = pas d'objectif défini par l'utilisateur (rétrocompatible avec les comptes existants)
+ALTER TABLE users ADD COLUMN IF NOT EXISTS objectif_proteines_g NUMERIC(6,1);
+ALTER TABLE users ADD COLUMN IF NOT EXISTS objectif_glucides_g NUMERIC(6,1);
+ALTER TABLE users ADD COLUMN IF NOT EXISTS objectif_lipides_g NUMERIC(6,1);
+
 CREATE TABLE IF NOT EXISTS meals (
   id SERIAL PRIMARY KEY,
   user_id INT REFERENCES users(id) ON DELETE CASCADE,
-  moment VARCHAR(20) NOT NULL,         -- matin / midi / collation / soir
+  moment VARCHAR(20) NOT NULL,
   nom_repas VARCHAR(255),
   calories INT,
   proteines_g NUMERIC(6,1),
@@ -34,11 +39,10 @@ CREATE TABLE IF NOT EXISTS meals (
   logged_at TIMESTAMP DEFAULT NOW()
 );
 
--- Activités physiques (extraites de captures d'écran santé)
 CREATE TABLE IF NOT EXISTS activities (
   id SERIAL PRIMARY KEY,
   user_id INT REFERENCES users(id) ON DELETE CASCADE,
-  type_activite VARCHAR(50),           -- marche / musculation / rameur / natation / autre
+  type_activite VARCHAR(50),
   pas INT,
   distance_km NUMERIC(5,2),
   duree_min INT,
@@ -47,7 +51,6 @@ CREATE TABLE IF NOT EXISTS activities (
   logged_at TIMESTAMP DEFAULT NOW()
 );
 
--- Composition corporelle (extraite de captures balance connectée)
 CREATE TABLE IF NOT EXISTS body_composition (
   id SERIAL PRIMARY KEY,
   user_id INT REFERENCES users(id) ON DELETE CASCADE,

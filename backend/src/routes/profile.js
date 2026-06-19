@@ -2,6 +2,7 @@ const express = require('express');
 const pool = require('../db/pool');
 const { requireAuth } = require('../middleware/auth');
 const { calcBMR, calcTDEE, calcBMI, estimateWeeksToGoal } = require('../utils/metabolic');
+const { analyzeBilan } = require('../utils/coach');
 
 const router = express.Router();
 router.use(requireAuth);
@@ -97,11 +98,24 @@ router.get('/dashboard/today', async (req, res) => {
 
     const caloriesIngerees = mealsResult.rows.reduce((sum, m) => sum + (m.calories || 0), 0);
     const caloriesActivite = activitiesResult.rows.reduce((sum, a) => sum + (a.calories_brulees || 0), 0);
+    const proteinesTotales = mealsResult.rows.reduce((sum, m) => sum + Number(m.proteines_g || 0), 0);
+    const glucidesTotales = mealsResult.rows.reduce((sum, m) => sum + Number(m.glucides_g || 0), 0);
+    const lipidesTotales = mealsResult.rows.reduce((sum, m) => sum + Number(m.lipides_g || 0), 0);
 
     const depenseDuJour = tdee + caloriesActivite;
     const deficitNet = depenseDuJour - caloriesIngerees;
 
     const bmi = calcBMI(dernierPoids, user.taille_cm);
+
+    const analyseCoach = analyzeBilan({
+      deficitNet,
+      caloriesIngerees,
+      proteinesTotales,
+      glucidesTotales,
+      lipidesTotales,
+      nbRepas: mealsResult.rows.length,
+      joursAvecDonnees: caloriesIngerees > 0 ? 1 : 0,
+    });
 
     res.json({
       date: targetDate || new Date().toISOString().slice(0, 10),
@@ -116,6 +130,17 @@ router.get('/dashboard/today', async (req, res) => {
       poidsObjectif: user.poids_objectif_kg,
       repas: mealsResult.rows,
       activites: activitiesResult.rows,
+      bilan: {
+        proteinesTotales: +proteinesTotales.toFixed(1),
+        glucidesTotales: +glucidesTotales.toFixed(1),
+        lipidesTotales: +lipidesTotales.toFixed(1),
+        caloriesIngerees,
+        bmr,
+        caloriesActivite,
+        depenseDuJour,
+        deficitNet,
+        analyseCoach,
+      },
     });
   } catch (err) {
     console.error('Erreur dashboard:', err.message);
@@ -138,7 +163,8 @@ router.get('/dashboard/range', async (req, res) => {
         SELECT generate_series($2::date - ($3::int - 1), $2::date, '1 day')::date AS jour
       ),
       repas_jour AS (
-        SELECT logged_at::date AS jour, COALESCE(SUM(calories), 0) AS calories_ingerees, COUNT(*) AS nb_repas
+        SELECT logged_at::date AS jour, COALESCE(SUM(calories), 0) AS calories_ingerees, COUNT(*) AS nb_repas,
+               COALESCE(SUM(proteines_g), 0) AS proteines, COALESCE(SUM(glucides_g), 0) AS glucides, COALESCE(SUM(lipides_g), 0) AS lipides
         FROM meals
         WHERE user_id = $1
         GROUP BY logged_at::date
@@ -153,6 +179,9 @@ router.get('/dashboard/range', async (req, res) => {
         jours.jour,
         COALESCE(repas_jour.calories_ingerees, 0) AS calories_ingerees,
         COALESCE(repas_jour.nb_repas, 0) AS nb_repas,
+        COALESCE(repas_jour.proteines, 0) AS proteines,
+        COALESCE(repas_jour.glucides, 0) AS glucides,
+        COALESCE(repas_jour.lipides, 0) AS lipides,
         COALESCE(activite_jour.calories_activite, 0) AS calories_activite
       FROM jours
       LEFT JOIN repas_jour ON repas_jour.jour = jours.jour
@@ -184,7 +213,41 @@ router.get('/dashboard/range', async (req, res) => {
 
     const deficitMoyen = jours.reduce((sum, j) => sum + j.deficitNet, 0) / jours.length;
 
-    res.json({ days, tdee, deficitMoyen: Math.round(deficitMoyen), jours });
+    // Bilan agrégé sur toute la période (pour la synthèse "coach" semaine/mois)
+    const caloriesIngereesTotal = result.rows.reduce((sum, r) => sum + Number(r.calories_ingerees), 0);
+    const proteinesTotales = result.rows.reduce((sum, r) => sum + Number(r.proteines), 0);
+    const glucidesTotales = result.rows.reduce((sum, r) => sum + Number(r.glucides), 0);
+    const lipidesTotales = result.rows.reduce((sum, r) => sum + Number(r.lipides), 0);
+    const caloriesActiviteTotal = result.rows.reduce((sum, r) => sum + Number(r.calories_activite), 0);
+    const joursAvecDonnees = result.rows.filter(r => Number(r.nb_repas) > 0).length;
+    const depenseTotale = (tdee * days) + caloriesActiviteTotal;
+    const deficitNetTotal = Math.round(depenseTotale - caloriesIngereesTotal);
+
+    const analyseCoach = analyzeBilan({
+      deficitNet: deficitNetTotal,
+      caloriesIngerees: caloriesIngereesTotal,
+      proteinesTotales,
+      glucidesTotales,
+      lipidesTotales,
+      nbRepas: result.rows.reduce((sum, r) => sum + Number(r.nb_repas), 0),
+      joursAvecDonnees,
+    });
+
+    res.json({
+      days, tdee, deficitMoyen: Math.round(deficitMoyen), jours,
+      bilan: {
+        proteinesTotales: +proteinesTotales.toFixed(1),
+        glucidesTotales: +glucidesTotales.toFixed(1),
+        lipidesTotales: +lipidesTotales.toFixed(1),
+        caloriesIngerees: caloriesIngereesTotal,
+        bmr,
+        caloriesActivite: caloriesActiviteTotal,
+        depenseDuJour: Math.round(depenseTotale),
+        deficitNet: deficitNetTotal,
+        joursAvecDonnees,
+        analyseCoach,
+      },
+    });
   } catch (err) {
     console.error('Erreur dashboard/range:', err.message);
     res.status(500).json({ error: err.message });

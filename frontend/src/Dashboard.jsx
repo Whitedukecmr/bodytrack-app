@@ -4,6 +4,7 @@ import { Card, Btn, BLUE, BLUE_LIGHT, GREEN, ORANGE, RED, Select } from "./ui";
 import PhotoCapture from "./PhotoCapture";
 import DeficitChart from "./DeficitChart";
 import EditProfile from "./EditProfile";
+import BilanComplet from "./BilanComplet";
 
 const MOMENTS = [
   { value: "matin", label: "🌅 Matin" },
@@ -211,7 +212,7 @@ export default function Dashboard({ user: initialUser, onLogout }) {
                 ))}
 
                 {today.activites.length > 0 && (
-                  <Card>
+                  <Card style={{ marginBottom: 12 }}>
                     <p style={{ margin: "0 0 10px", fontWeight: 700, fontSize: 14 }}>🏃 Activités</p>
                     {today.activites.map(a => (
                       <div key={a.id} style={{ display: "flex", justifyContent: "space-between", padding: "8px 0", borderTop: "1px solid #F0F2FF" }}>
@@ -221,6 +222,8 @@ export default function Dashboard({ user: initialUser, onLogout }) {
                     ))}
                   </Card>
                 )}
+
+                <BilanComplet bilan={today.bilan} periodeLabel={isToday ? "de la journée" : `du ${formatDateLabel(selectedDate).toLowerCase()}`} />
               </div>
             )}
 
@@ -242,7 +245,7 @@ export default function Dashboard({ user: initialUser, onLogout }) {
                   </div>
                 </Card>
 
-                <Card>
+                <Card style={{ marginBottom: 12 }}>
                   <p style={{ margin: "0 0 10px", fontWeight: 700, fontSize: 14 }}>Détail par jour</p>
                   {range.jours.slice().reverse().map(j => (
                     <div key={j.date} onClick={() => goToDay(j.date)} style={{
@@ -259,6 +262,8 @@ export default function Dashboard({ user: initialUser, onLogout }) {
                     </div>
                   ))}
                 </Card>
+
+                <BilanComplet bilan={range.bilan} periodeLabel={journalView === "semaine" ? "des 7 derniers jours" : "des 30 derniers jours"} />
               </div>
             )}
           </div>

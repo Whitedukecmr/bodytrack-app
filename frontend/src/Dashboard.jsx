@@ -5,6 +5,7 @@ import PhotoCapture from "./PhotoCapture";
 import DeficitChart from "./DeficitChart";
 import EditProfile from "./EditProfile";
 import BilanComplet from "./BilanComplet";
+import MealTextEntry from "./MealTextEntry";
 
 const MOMENTS = [
   { value: "matin", label: "🌅 Matin" },
@@ -46,6 +47,7 @@ export default function Dashboard({ user: initialUser, onLogout }) {
   const [range, setRange] = useState(null);
   const [progress, setProgress] = useState(null);
   const [moment, setMoment] = useState("midi");
+  const [repasMode, setRepasMode] = useState("photo");
   const [activityType, setActivityType] = useState("marche");
   const [showDatePicker, setShowDatePicker] = useState(false);
   const [showEditProfile, setShowEditProfile] = useState(false);
@@ -96,6 +98,35 @@ export default function Dashboard({ user: initialUser, onLogout }) {
   async function handleProfileUpdated(updatedUser) {
     setUser(updatedUser);
     await refresh();
+  }
+
+  function renderMealResult(r) {
+    return (
+      <Card>
+        <div style={{ display: "flex", justifyContent: "space-between", alignItems: "center", marginBottom: 14 }}>
+          <h3 style={{ fontWeight: 800, fontSize: 17, margin: 0 }}>{r.nom_repas}</h3>
+          <div style={{ background: scoreColor(r.score_sante), color: "white", borderRadius: 99, padding: "4px 12px", fontWeight: 700, fontSize: 13 }}>{r.score_sante}/10</div>
+        </div>
+        <div style={{ background: BLUE_LIGHT, borderRadius: 14, padding: 14, textAlign: "center", marginBottom: 14 }}>
+          <div style={{ fontSize: 32, fontWeight: 900, color: BLUE }}>{r.calories}</div>
+          <div style={{ fontSize: 13, color: "#666" }}>calories</div>
+        </div>
+        <div style={{ display: "grid", gridTemplateColumns: "1fr 1fr 1fr", gap: 8, marginBottom: 14 }}>
+          {[["Protéines", r.proteines_g, BLUE], ["Glucides", r.glucides_g, ORANGE], ["Lipides", r.lipides_g, RED]].map(([l, v, c]) => (
+            <div key={l} style={{ background: "#F7F8FF", borderRadius: 12, padding: "10px 6px", textAlign: "center" }}>
+              <div style={{ fontWeight: 800, fontSize: 16, color: c }}>{v}g</div>
+              <div style={{ fontSize: 10, color: "#888" }}>{l}</div>
+            </div>
+          ))}
+        </div>
+        <div style={{ background: "#F0FFF4", borderRadius: 12, padding: 12, marginBottom: 8 }}>
+          <p style={{ margin: 0, fontSize: 13, color: "#166534" }}>{r.avis_sante}</p>
+        </div>
+        <div style={{ background: BLUE_LIGHT, borderRadius: 12, padding: 12 }}>
+          <p style={{ margin: 0, fontSize: 13, color: "#2742d4" }}>{r.conseil}</p>
+        </div>
+      </Card>
+    );
   }
 
   if (!today) return <div style={{ padding: 40, textAlign: "center", color: "#888" }}>Chargement...</div>;
@@ -270,39 +301,38 @@ export default function Dashboard({ user: initialUser, onLogout }) {
         )}
 
         {tab === "repas" && (
-          <PhotoCapture
-            title="Analyse ton repas"
-            description="Prends ou importe une photo pour obtenir les valeurs nutritionnelles."
-            icon="🍽️"
-            extraControls={<Select label="Moment de la journée" value={moment} onChange={setMoment} options={MOMENTS} />}
-            onAnalyze={async (b64) => { const r = await api.analyzeMeal(b64, moment); await refresh(); return r; }}
-            renderResult={(r) => (
-              <Card>
-                <div style={{ display: "flex", justifyContent: "space-between", alignItems: "center", marginBottom: 14 }}>
-                  <h3 style={{ fontWeight: 800, fontSize: 17, margin: 0 }}>{r.nom_repas}</h3>
-                  <div style={{ background: scoreColor(r.score_sante), color: "white", borderRadius: 99, padding: "4px 12px", fontWeight: 700, fontSize: 13 }}>{r.score_sante}/10</div>
-                </div>
-                <div style={{ background: BLUE_LIGHT, borderRadius: 14, padding: 14, textAlign: "center", marginBottom: 14 }}>
-                  <div style={{ fontSize: 32, fontWeight: 900, color: BLUE }}>{r.calories}</div>
-                  <div style={{ fontSize: 13, color: "#666" }}>calories</div>
-                </div>
-                <div style={{ display: "grid", gridTemplateColumns: "1fr 1fr 1fr", gap: 8, marginBottom: 14 }}>
-                  {[["Protéines", r.proteines_g, BLUE], ["Glucides", r.glucides_g, ORANGE], ["Lipides", r.lipides_g, RED]].map(([l, v, c]) => (
-                    <div key={l} style={{ background: "#F7F8FF", borderRadius: 12, padding: "10px 6px", textAlign: "center" }}>
-                      <div style={{ fontWeight: 800, fontSize: 16, color: c }}>{v}g</div>
-                      <div style={{ fontSize: 10, color: "#888" }}>{l}</div>
-                    </div>
-                  ))}
-                </div>
-                <div style={{ background: "#F0FFF4", borderRadius: 12, padding: 12, marginBottom: 8 }}>
-                  <p style={{ margin: 0, fontSize: 13, color: "#166534" }}>{r.avis_sante}</p>
-                </div>
-                <div style={{ background: BLUE_LIGHT, borderRadius: 12, padding: 12 }}>
-                  <p style={{ margin: 0, fontSize: 13, color: "#2742d4" }}>{r.conseil}</p>
-                </div>
-              </Card>
+          <div>
+            <div style={{ display: "flex", gap: 6, marginBottom: 14 }}>
+              {[["photo", "📷 Photo"], ["manuel", "✍️ Saisie manuelle"]].map(([key, label]) => (
+                <button key={key} onClick={() => setRepasMode(key)} style={{
+                  flex: 1, padding: "10px 4px", borderRadius: 10, border: repasMode === key ? `2px solid ${BLUE}` : "2px solid #E0E6FF",
+                  background: repasMode === key ? BLUE_LIGHT : "white", color: repasMode === key ? BLUE : "#888",
+                  fontWeight: 700, fontSize: 13, cursor: "pointer"
+                }}>{label}</button>
+              ))}
+            </div>
+
+            <div style={{ marginBottom: 14 }}>
+              <Select label="Moment de la journée" value={moment} onChange={setMoment} options={MOMENTS} />
+            </div>
+
+            {repasMode === "photo" && (
+              <PhotoCapture
+                title="Analyse ton repas"
+                description="Prends ou importe une photo pour obtenir les valeurs nutritionnelles."
+                icon="🍽️"
+                onAnalyze={async (b64) => { const r = await api.analyzeMeal(b64, moment); await refresh(); return r; }}
+                renderResult={renderMealResult}
+              />
             )}
-          />
+
+            {repasMode === "manuel" && (
+              <MealTextEntry
+                onAnalyze={async (description) => { const r = await api.analyzeMealText(description, moment); await refresh(); return r; }}
+                renderResult={renderMealResult}
+              />
+            )}
+          </div>
         )}
 
         {tab === "activite" && (

@@ -44,6 +44,30 @@ async function askBedrockVision(imageBase64, prompt) {
   return JSON.parse(text);
 }
 
+// Appel Bedrock texte uniquement (pas d'image) — pour la saisie manuelle d'ingrédients
+async function askBedrockText(prompt) {
+  const payload = {
+    anthropic_version: 'bedrock-2023-05-31',
+    max_tokens: 1000,
+    messages: [{
+      role: 'user',
+      content: [{ type: 'text', text: prompt }]
+    }]
+  };
+
+  const command = new InvokeModelCommand({
+    modelId: MODEL_ID,
+    contentType: 'application/json',
+    accept: 'application/json',
+    body: JSON.stringify(payload)
+  });
+
+  const response = await bedrock.send(command);
+  const body = JSON.parse(Buffer.from(response.body).toString());
+  const text = body.content[0].text.replace(/```json|```/g, '').trim();
+  return JSON.parse(text);
+}
+
 // ── Analyse d'un repas par photo ──────────────────────────────
 router.post('/meal', async (req, res) => {
   try {
@@ -76,6 +100,48 @@ router.post('/meal', async (req, res) => {
     res.json(result.rows[0]);
   } catch (err) {
     console.error('Erreur analyse repas:', err.message);
+    res.status(500).json({ error: err.message });
+  }
+});
+
+// ── Analyse d'un repas par saisie manuelle d'ingrédients (texte libre) ─
+router.post('/meal-text', async (req, res) => {
+  try {
+    const { description, moment } = req.body;
+    if (!description || !description.trim()) {
+      return res.status(400).json({ error: 'Description des ingrédients manquante' });
+    }
+
+    const prompt = `Voici une liste d'ingrédients et de quantités précises (en grammes ou unités) saisie manuellement par l'utilisateur pour un repas :
+
+"${description}"
+
+Calcule les valeurs nutritionnelles à partir de ces quantités exactes et retourne UNIQUEMENT un JSON valide sans backticks avec ces champs exacts:
+{
+  "nom_repas": "nom court résumant le repas",
+  "calories": nombre,
+  "proteines_g": nombre,
+  "glucides_g": nombre,
+  "lipides_g": nombre,
+  "fibres_g": nombre,
+  "avis_sante": "commentaire nutritionnel court en francais",
+  "conseil": "conseil de coach axe sur la recuperation, la gestion de l'insuline et la satiete, en francais",
+  "score_sante": nombre entre 1 et 10
+}`;
+
+    const analysis = await askBedrockText(prompt);
+
+    const result = await pool.query(
+      `INSERT INTO meals (user_id, moment, nom_repas, calories, proteines_g, glucides_g, lipides_g, fibres_g, avis_sante, conseil, score_sante)
+       VALUES ($1,$2,$3,$4,$5,$6,$7,$8,$9,$10,$11)
+       RETURNING *`,
+      [req.userId, moment || 'collation', analysis.nom_repas, analysis.calories, analysis.proteines_g,
+       analysis.glucides_g, analysis.lipides_g, analysis.fibres_g, analysis.avis_sante, analysis.conseil, analysis.score_sante]
+    );
+
+    res.json(result.rows[0]);
+  } catch (err) {
+    console.error('Erreur analyse repas texte:', err.message);
     res.status(500).json({ error: err.message });
   }
 });

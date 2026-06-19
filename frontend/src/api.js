@@ -38,6 +38,7 @@ export const api = {
   dashboardRange: (days, endDate) => apiCall(`/profile/dashboard/range?days=${days}${endDate ? `&endDate=${endDate}` : ''}`),
   dashboardProgress: () => apiCall('/profile/dashboard/progress'),
   analyzeMeal: (imageBase64, moment) => apiCall('/vision/meal', { method: 'POST', body: JSON.stringify({ imageBase64, moment }) }),
+  analyzeMealText: (description, moment) => apiCall('/vision/meal-text', { method: 'POST', body: JSON.stringify({ description, moment }) }),
   analyzeActivity: (imageBase64, type_activite) => apiCall('/vision/activity', { method: 'POST', body: JSON.stringify({ imageBase64, type_activite }) }),
   analyzeBodyComposition: (imageBase64) => apiCall('/vision/body-composition', { method: 'POST', body: JSON.stringify({ imageBase64 }) }),
 };

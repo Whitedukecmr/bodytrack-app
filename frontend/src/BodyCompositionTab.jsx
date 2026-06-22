@@ -1,64 +1,60 @@
-import { useState } from "react";
+import { useState, useEffect, useRef } from "react";
 import { api } from "./api";
 import { Card, Field, Btn, ErrorBox, BLUE, BLUE_LIGHT, GREEN, ORANGE, RED } from "./ui";
 import PhotoCapture from "./PhotoCapture";
 
 // ── Graphique donut SVG pour la composition corporelle ────────
+import { useState, useEffect, useRef } from "react";
+
 function DonutChart({ grasse, musculaire, osseuse, eau }) {
+  const canvasRef = useRef(null);
   const data = [
-    { label: "Masse grasse", value: grasse || 0, color: ORANGE },
-    { label: "Masse musculaire", value: musculaire || 0, color: GREEN },
+    { label: "Masse grasse", value: grasse || 0, color: "#f59e0b" },
+    { label: "Masse musculaire", value: musculaire || 0, color: "#22c55e" },
     { label: "Masse osseuse", value: osseuse || 0, color: "#374151" },
   ].filter(d => d.value > 0);
 
+  useEffect(() => {
+    const canvas = canvasRef.current;
+    if (!canvas || data.length === 0) return;
+    const ctx = canvas.getContext('2d');
+    const size = 120;
+    const dpr = window.devicePixelRatio || 1;
+    canvas.width = size * dpr;
+    canvas.height = size * dpr;
+    canvas.style.width = size + 'px';
+    canvas.style.height = size + 'px';
+    ctx.scale(dpr, dpr);
+
+    const cx = size / 2, cy = size / 2;
+    const outerR = 48, innerR = 30;
+    const total = data.reduce((s, d) => s + d.value, 0);
+    const gap = 0.03; // gap entre les segments en radians
+
+    let startAngle = -Math.PI / 2; // commence en haut
+
+    data.forEach(d => {
+      const sliceAngle = (d.value / total) * 2 * Math.PI;
+      ctx.beginPath();
+      ctx.moveTo(
+        cx + outerR * Math.cos(startAngle + gap),
+        cy + outerR * Math.sin(startAngle + gap)
+      );
+      ctx.arc(cx, cy, outerR, startAngle + gap, startAngle + sliceAngle - gap);
+      ctx.arc(cx, cy, innerR, startAngle + sliceAngle - gap, startAngle + gap, true);
+      ctx.closePath();
+      ctx.fillStyle = d.color;
+      ctx.fill();
+      startAngle += sliceAngle;
+    });
+  }, [grasse, musculaire, osseuse]);
+
   if (data.length === 0) return null;
-
-  const total = data.reduce((s, d) => s + d.value, 0);
-  const cx = 60, cy = 60, r = 44, innerR = 30;
-
-  // Calcul des arcs SVG (path) — beaucoup plus fiable que strokeDasharray
-  function polarToCartesian(angle, radius) {
-    const rad = (angle - 90) * Math.PI / 180;
-    return {
-      x: cx + radius * Math.cos(rad),
-      y: cy + radius * Math.sin(rad),
-    };
-  }
-
-  function arcPath(startAngle, endAngle, radius, inner) {
-    const start = polarToCartesian(startAngle, radius);
-    const end = polarToCartesian(endAngle, radius);
-    const startInner = polarToCartesian(startAngle, inner);
-    const endInner = polarToCartesian(endAngle, inner);
-    const largeArc = endAngle - startAngle > 180 ? 1 : 0;
-
-    return [
-      `M ${start.x} ${start.y}`,
-      `A ${radius} ${radius} 0 ${largeArc} 1 ${end.x} ${end.y}`,
-      `L ${endInner.x} ${endInner.y}`,
-      `A ${inner} ${inner} 0 ${largeArc} 0 ${startInner.x} ${startInner.y}`,
-      'Z'
-    ].join(' ');
-  }
-
-  let currentAngle = 0;
-  const slices = data.map(d => {
-    const angle = (d.value / total) * 360;
-    const path = arcPath(currentAngle, currentAngle + angle - 0.5, r, innerR);
-    currentAngle += angle;
-    return { ...d, path };
-  });
 
   return (
     <div>
       <div style={{ display: "flex", alignItems: "center", gap: 16, marginBottom: eau ? 10 : 0 }}>
-        <svg width={120} height={120} viewBox="0 0 120 120" style={{ flexShrink: 0 }}>
-          <circle cx={cx} cy={cy} r={r} fill="#F0F2FF" />
-          <circle cx={cx} cy={cy} r={innerR} fill="white" />
-          {slices.map((s, i) => (
-            <path key={i} d={s.path} fill={s.color} />
-          ))}
-        </svg>
+        <canvas ref={canvasRef} style={{ flexShrink: 0 }} />
         <div>
           {data.map(d => (
             <div key={d.label} style={{ display: "flex", alignItems: "center", gap: 6, marginBottom: 6 }}>

@@ -1,10 +1,11 @@
 import { useState, useEffect, useRef } from "react";
+
 import { api } from "./api";
 import { Card, Field, Btn, ErrorBox, BLUE, BLUE_LIGHT, GREEN, ORANGE, RED } from "./ui";
 import PhotoCapture from "./PhotoCapture";
 
 // ── Graphique donut SVG pour la composition corporelle ────────
-import { useState, useEffect, useRef } from "react";
+
 
 function DonutChart({ grasse, musculaire, osseuse, eau }) {
   const canvasRef = useRef(null);

@@ -1,75 +1,41 @@
-import { useState, useEffect, useRef } from "react";
-
+import { useState } from "react";
 import { api } from "./api";
 import { Card, Field, Btn, ErrorBox, BLUE, BLUE_LIGHT, GREEN, ORANGE, RED } from "./ui";
 import PhotoCapture from "./PhotoCapture";
 
 // ── Graphique donut SVG pour la composition corporelle ────────
-
-
 function DonutChart({ grasse, musculaire, osseuse, eau }) {
-  const canvasRef = useRef(null);
-  const data = [
-    { label: "Masse grasse", value: grasse || 0, color: "#f59e0b" },
-    { label: "Masse musculaire", value: musculaire || 0, color: "#22c55e" },
-    { label: "Masse osseuse", value: osseuse || 0, color: "#374151" },
+  const segments = [
+    { label: "Masse grasse", value: grasse || 0, color: "#f59e0b", bg: "#FFF7ED" },
+    { label: "Masse musculaire", value: musculaire || 0, color: "#22c55e", bg: "#F0FFF4" },
+    { label: "Masse osseuse", value: osseuse || 0, color: "#374151", bg: "#F9FAFB" },
   ].filter(d => d.value > 0);
 
-  useEffect(() => {
-    const canvas = canvasRef.current;
-    if (!canvas || data.length === 0) return;
-    const ctx = canvas.getContext('2d');
-    const size = 120;
-    const dpr = window.devicePixelRatio || 1;
-    canvas.width = size * dpr;
-    canvas.height = size * dpr;
-    canvas.style.width = size + 'px';
-    canvas.style.height = size + 'px';
-    ctx.scale(dpr, dpr);
-
-    const cx = size / 2, cy = size / 2;
-    const outerR = 48, innerR = 30;
-    const total = data.reduce((s, d) => s + d.value, 0);
-    const gap = 0.03; // gap entre les segments en radians
-
-    let startAngle = -Math.PI / 2; // commence en haut
-
-    data.forEach(d => {
-      const sliceAngle = (d.value / total) * 2 * Math.PI;
-      ctx.beginPath();
-      ctx.moveTo(
-        cx + outerR * Math.cos(startAngle + gap),
-        cy + outerR * Math.sin(startAngle + gap)
-      );
-      ctx.arc(cx, cy, outerR, startAngle + gap, startAngle + sliceAngle - gap);
-      ctx.arc(cx, cy, innerR, startAngle + sliceAngle - gap, startAngle + gap, true);
-      ctx.closePath();
-      ctx.fillStyle = d.color;
-      ctx.fill();
-      startAngle += sliceAngle;
-    });
-  }, [grasse, musculaire, osseuse]);
-
-  if (data.length === 0) return null;
+  if (segments.length === 0) return null;
 
   return (
     <div>
-      <div style={{ display: "flex", alignItems: "center", gap: 16, marginBottom: eau ? 10 : 0 }}>
-        <canvas ref={canvasRef} style={{ flexShrink: 0 }} />
-        <div>
-          {data.map(d => (
-            <div key={d.label} style={{ display: "flex", alignItems: "center", gap: 6, marginBottom: 6 }}>
-              <div style={{ width: 10, height: 10, borderRadius: "50%", background: d.color, flexShrink: 0 }} />
-              <span style={{ fontSize: 12, color: "#555" }}>{d.label}</span>
-              <span style={{ fontSize: 13, fontWeight: 700, marginLeft: 4 }}>{d.value}%</span>
+      {segments.map(s => (
+        <div key={s.label} style={{ marginBottom: 10 }}>
+          <div style={{ display: "flex", justifyContent: "space-between", marginBottom: 4 }}>
+            <div style={{ display: "flex", alignItems: "center", gap: 6 }}>
+              <div style={{ width: 10, height: 10, borderRadius: "50%", background: s.color }} />
+              <span style={{ fontSize: 13, color: "#555" }}>{s.label}</span>
             </div>
-          ))}
+            <span style={{ fontSize: 13, fontWeight: 800, color: s.color }}>{s.value}%</span>
+          </div>
+          <div style={{ background: s.bg, borderRadius: 99, height: 10, overflow: "hidden" }}>
+            <div style={{
+              background: s.color, height: "100%", borderRadius: 99,
+              width: `${s.value}%`, transition: "width 0.5s ease"
+            }} />
+          </div>
         </div>
-      </div>
+      ))}
       {eau > 0 && (
-        <div style={{ background: "#EFF6FF", borderRadius: 10, padding: "8px 12px", display: "flex", justifyContent: "space-between", alignItems: "center" }}>
+        <div style={{ background: "#EFF6FF", borderRadius: 10, padding: "8px 12px", display: "flex", justifyContent: "space-between", alignItems: "center", marginTop: 8 }}>
           <div style={{ display: "flex", alignItems: "center", gap: 6 }}>
-            <div style={{ width: 10, height: 10, borderRadius: "50%", background: "#60a5fa", flexShrink: 0 }} />
+            <div style={{ width: 10, height: 10, borderRadius: "50%", background: "#60a5fa" }} />
             <span style={{ fontSize: 12, color: "#555" }}>Eau corporelle</span>
           </div>
           <span style={{ fontSize: 13, fontWeight: 700, color: "#3b82f6" }}>{eau}%</span>

@@ -123,6 +123,7 @@ router.get('/dashboard/today', async (req, res) => {
     const objectifs = {
       calories_cible: objAuto.calories,
       proteines_g: user.objectif_proteines_g != null ? Number(user.objectif_proteines_g) : objAuto.proteines,
+      glucides_g: user.objectif_glucides_g != null ? Number(user.objectif_glucides_g) : objAuto.glucides,
       lipides_g: user.objectif_lipides_g != null ? Number(user.objectif_lipides_g) : objAuto.lipides,
       fibres_g: objAuto.fibres,
       proteines_personnalise: user.objectif_proteines_g != null,

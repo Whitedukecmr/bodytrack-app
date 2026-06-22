@@ -193,6 +193,7 @@ export default function Dashboard({ user: initialUser, onLogout }) {
             {[
               { label: "Calories", valeur: today.caloriesIngerees, cible: objectifs.calories_cible, unite: "kcal", couleur: "rgba(255,255,255,0.9)" },
               { label: "Protéines", valeur: today.bilan?.proteinesTotales ?? 0, cible: objectifs.proteines_g, unite: "g", couleur: "#93c5fd" },
+              { label: "Glucides", valeur: today.bilan?.glucidesTotales ?? 0, cible: objectifs.glucides_g, unite: "g", couleur: "#fde68a" },
               { label: "Lipides", valeur: today.bilan?.lipidesTotales ?? 0, cible: objectifs.lipides_g, unite: "g", couleur: "#fca5a5" },
               { label: "Fibres", valeur: today.bilan?.fibresTotales ?? 0, cible: objectifs.fibres_g, unite: "g", couleur: "#86efac" },
             ].map(({ label, valeur, cible, unite, couleur }) => cible ? (

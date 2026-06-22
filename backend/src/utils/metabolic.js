@@ -46,9 +46,10 @@ function calcObjectifsJournaliers({ sexe, poids_kg, poids_objectif_kg }) {
   const calories = Math.round(p * (homme ? 26 : 24));
   const proteines = Math.round(pCible * (homme ? 2 : 1.8));
   const lipides = Math.round(p * (homme ? 1 : 0.8));
+  const glucides = Math.round(calories / 2 / 4);
   const fibres = Math.round((calories / 1000) * 14);
 
-  return { calories, proteines, lipides, fibres };
+  return { calories, proteines, lipides, glucides, fibres };
 }
 
 module.exports = { calcBMR, calcTDEE, calcBMI, estimateWeeksToGoal, calcObjectifsJournaliers, ACTIVITY_FACTORS };

@@ -190,21 +190,26 @@ export default function Dashboard({ user: initialUser, onLogout }) {
 
         {objectifs.proteines_g && (
           <div style={{ marginTop: 10, background: "rgba(255,255,255,0.12)", borderRadius: 14, padding: 12 }}>
-            <div style={{ display: "flex", justifyContent: "space-between", marginBottom: 6 }}>
-              <span style={{ fontSize: 11, color: "rgba(255,255,255,0.75)" }}>
-                Protéines {!objectifs.proteines_personnalise && "(objectif estimé)"}
-              </span>
-              <span style={{ fontSize: 11, color: "white", fontWeight: 700 }}>
-                {today.bilan?.proteinesTotales ?? 0} / {objectifs.proteines_g}g
-              </span>
-            </div>
-            <div style={{ background: "rgba(255,255,255,0.2)", borderRadius: 99, height: 8, overflow: "hidden" }}>
-              <div style={{
-                background: "white", height: "100%", borderRadius: 99,
-                width: `${Math.min(100, ((today.bilan?.proteinesTotales ?? 0) / objectifs.proteines_g) * 100)}%`,
-                transition: "width 0.3s"
-              }} />
-            </div>
+            {[
+              { label: "Calories", valeur: today.caloriesIngerees, cible: objectifs.calories_cible, unite: "kcal", couleur: "rgba(255,255,255,0.9)" },
+              { label: "Protéines", valeur: today.bilan?.proteinesTotales ?? 0, cible: objectifs.proteines_g, unite: "g", couleur: "#93c5fd" },
+              { label: "Lipides", valeur: today.bilan?.lipidesTotales ?? 0, cible: objectifs.lipides_g, unite: "g", couleur: "#fca5a5" },
+              { label: "Fibres", valeur: today.bilan?.fibresTotales ?? 0, cible: objectifs.fibres_g, unite: "g", couleur: "#86efac" },
+            ].map(({ label, valeur, cible, unite, couleur }) => cible ? (
+              <div key={label} style={{ marginBottom: 8 }}>
+                <div style={{ display: "flex", justifyContent: "space-between", marginBottom: 3 }}>
+                  <span style={{ fontSize: 10, color: "rgba(255,255,255,0.7)" }}>{label}</span>
+                  <span style={{ fontSize: 10, color: couleur, fontWeight: 700 }}>{valeur} / {cible}{unite}</span>
+                </div>
+                <div style={{ background: "rgba(255,255,255,0.15)", borderRadius: 99, height: 5, overflow: "hidden" }}>
+                  <div style={{
+                    background: couleur, height: "100%", borderRadius: 99,
+                    width: `${Math.min(100, (valeur / cible) * 100)}%`,
+                    transition: "width 0.3s"
+                  }} />
+                </div>
+              </div>
+            ) : null)}
           </div>
         )}
       </div>

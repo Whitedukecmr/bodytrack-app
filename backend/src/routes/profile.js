@@ -1,7 +1,7 @@
 const express = require('express');
 const pool = require('../db/pool');
 const { requireAuth } = require('../middleware/auth');
-const { calcBMR, calcTDEE, calcBMI, estimateWeeksToGoal, defaultProteinGoal } = require('../utils/metabolic');
+const { calcBMR, calcTDEE, calcBMI, estimateWeeksToGoal, calcObjectifsJournaliers } = require('../utils/metabolic');
 const { analyzeBilan } = require('../utils/coach');
 
 const router = express.Router();
@@ -101,6 +101,7 @@ router.get('/dashboard/today', async (req, res) => {
     const proteinesTotales = mealsResult.rows.reduce((sum, m) => sum + Number(m.proteines_g || 0), 0);
     const glucidesTotales = mealsResult.rows.reduce((sum, m) => sum + Number(m.glucides_g || 0), 0);
     const lipidesTotales = mealsResult.rows.reduce((sum, m) => sum + Number(m.lipides_g || 0), 0);
+    const fibresTotales = mealsResult.rows.reduce((sum, m) => sum + Number(m.fibres_g || 0), 0);
 
     const depenseDuJour = tdee + caloriesActivite;
     const deficitNet = depenseDuJour - caloriesIngerees;
@@ -112,11 +113,20 @@ router.get('/dashboard/today', async (req, res) => {
       joursAvecDonnees: caloriesIngerees > 0 ? 1 : 0,
     });
 
+    // Objectifs journaliers selon la méthode de la vidéo
+    const objAuto = calcObjectifsJournaliers({
+      sexe: user.sexe,
+      poids_kg: dernierPoids,
+      poids_objectif_kg: user.poids_objectif_kg,
+    });
+
     const objectifs = {
-      proteines_g: user.objectif_proteines_g != null ? Number(user.objectif_proteines_g) : defaultProteinGoal(dernierPoids),
-      glucides_g: user.objectif_glucides_g != null ? Number(user.objectif_glucides_g) : null,
-      lipides_g: user.objectif_lipides_g != null ? Number(user.objectif_lipides_g) : null,
+      calories_cible: objAuto.calories,
+      proteines_g: user.objectif_proteines_g != null ? Number(user.objectif_proteines_g) : objAuto.proteines,
+      lipides_g: user.objectif_lipides_g != null ? Number(user.objectif_lipides_g) : objAuto.lipides,
+      fibres_g: objAuto.fibres,
       proteines_personnalise: user.objectif_proteines_g != null,
+      lipides_personnalise: user.objectif_lipides_g != null,
     };
 
     res.json({
@@ -131,6 +141,7 @@ router.get('/dashboard/today', async (req, res) => {
         proteinesTotales: +proteinesTotales.toFixed(1),
         glucidesTotales: +glucidesTotales.toFixed(1),
         lipidesTotales: +lipidesTotales.toFixed(1),
+        fibresTotales: +fibresTotales.toFixed(1),
         caloriesIngerees, bmr, caloriesActivite, depenseDuJour, deficitNet, analyseCoach,
       },
     });

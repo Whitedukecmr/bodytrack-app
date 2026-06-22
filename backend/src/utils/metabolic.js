@@ -33,9 +33,22 @@ function estimateWeeksToGoal(poidsActuel, poidsObjectif, deficitMoyenJournalier)
   return Math.ceil(jours / 7);
 }
 
-// Objectif protéines par défaut si non personnalisé : ~1.8g/kg de poids (recomposition corporelle standard)
-function defaultProteinGoal(poids_kg) {
-  return Math.round(Number(poids_kg) * 1.8);
+// ── Objectifs journaliers selon la méthode de la vidéo ────────────────────────
+// Calories : poids actuel × 26 (homme) ou × 24 (femme)
+// Protéines : poids CIBLE × 2 (homme) ou × 1.8 (femme)
+// Lipides : poids actuel × 1 (homme) ou × 0.8 (femme)
+// Fibres : (objectif calories ÷ 1000) × 14
+function calcObjectifsJournaliers({ sexe, poids_kg, poids_objectif_kg }) {
+  const p = Number(poids_kg);
+  const pCible = Number(poids_objectif_kg);
+  const homme = sexe !== 'femme';
+
+  const calories = Math.round(p * (homme ? 26 : 24));
+  const proteines = Math.round(pCible * (homme ? 2 : 1.8));
+  const lipides = Math.round(p * (homme ? 1 : 0.8));
+  const fibres = Math.round((calories / 1000) * 14);
+
+  return { calories, proteines, lipides, fibres };
 }
 
-module.exports = { calcBMR, calcTDEE, calcBMI, estimateWeeksToGoal, defaultProteinGoal, ACTIVITY_FACTORS };
+module.exports = { calcBMR, calcTDEE, calcBMI, estimateWeeksToGoal, calcObjectifsJournaliers, ACTIVITY_FACTORS };

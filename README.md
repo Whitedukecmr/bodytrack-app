@@ -358,7 +358,7 @@ sudo systemctl reload nginx
 
 ## ⚠️ Limitations connues
 
-- **Emails limités au compte Resend** : sans domaine vérifié, les emails ne peuvent être envoyés qu'à l'adresse du compte Resend lui-même (`chocobig505@gmail.com`), quel que soit le fournisseur visé (Gmail, Outlook, Yahoo...). Adapté à un usage personnel, insuffisant pour plusieurs utilisateurs.
+- **Emails limités au compte Resend** : sans domaine vérifié, les emails ne peuvent être envoyés qu'à l'adresse du compte Resend lui-même (`c....5@gmail.com`), quel que soit le fournisseur visé (Gmail, Outlook, Yahoo...). Adapté à un usage personnel, insuffisant pour plusieurs utilisateurs.
 - **Horaires de rappel fixes en UTC** : les 3 tâches cron sont calées sur l'heure d'été parisienne (UTC+2). Un ajustement manuel sera nécessaire au passage à l'heure d'hiver (UTC+1) pour conserver les horaires 10h/14h/20h côté Paris.
 - **Pas de renouvellement SSL automatique** : le certificat Let's Encrypt a été généré en mode `--manual`, ce qui nécessite une intervention humaine pour le renouveler avant expiration.
 

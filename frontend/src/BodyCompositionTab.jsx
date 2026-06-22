@@ -5,11 +5,12 @@ import PhotoCapture from "./PhotoCapture";
 
 // ── Graphique donut SVG pour la composition corporelle ────────
 function DonutChart({ grasse, musculaire, osseuse, eau }) {
+  // Le donut n'affiche que grasse + musculaire + osseuse (total = ~100%)
+  // L'eau est une mesure séparée (elle est incluse dans la masse musculaire), pas dans le donut
   const data = [
     { label: "Masse grasse", value: grasse || 0, color: ORANGE },
     { label: "Masse musculaire", value: musculaire || 0, color: GREEN },
     { label: "Masse osseuse", value: osseuse || 0, color: "#374151" },
-    { label: "Eau", value: eau || 0, color: "#60a5fa" },
   ].filter(d => d.value > 0);
 
   if (data.length === 0) return null;
@@ -22,33 +23,45 @@ function DonutChart({ grasse, musculaire, osseuse, eau }) {
   const slices = data.map(d => {
     const pct = d.value / total;
     const dash = pct * circ;
-    const slice = { ...d, dash, offset, pct };
+    const slice = { ...d, dash, offset };
     offset += dash;
     return slice;
   });
 
   return (
-    <div style={{ display: "flex", alignItems: "center", gap: 16 }}>
-      <svg width={120} height={120} viewBox="0 0 120 120">
-        {slices.map((s, i) => (
-          <circle key={i} cx={cx} cy={cy} r={r}
-            fill="none" stroke={s.color} strokeWidth={strokeW}
-            strokeDasharray={`${s.dash} ${circ - s.dash}`}
-            strokeDashoffset={-s.offset}
-            transform="rotate(-90 60 60)"
-            strokeLinecap="butt"
-          />
-        ))}
-      </svg>
-      <div>
-        {data.map(d => (
-          <div key={d.label} style={{ display: "flex", alignItems: "center", gap: 6, marginBottom: 4 }}>
-            <div style={{ width: 10, height: 10, borderRadius: "50%", background: d.color, flexShrink: 0 }} />
-            <span style={{ fontSize: 12, color: "#555" }}>{d.label}</span>
-            <span style={{ fontSize: 12, fontWeight: 700, marginLeft: 4 }}>{d.value}%</span>
-          </div>
-        ))}
+    <div>
+      <div style={{ display: "flex", alignItems: "center", gap: 16, marginBottom: eau ? 10 : 0 }}>
+        <svg width={120} height={120} viewBox="0 0 120 120" style={{ flexShrink: 0 }}>
+          {slices.map((s, i) => (
+            <circle key={i} cx={cx} cy={cy} r={r}
+              fill="none" stroke={s.color} strokeWidth={strokeW}
+              strokeDasharray={`${s.dash} ${circ - s.dash}`}
+              strokeDashoffset={-s.offset}
+              transform="rotate(-90 60 60)"
+              strokeLinecap="butt"
+            />
+          ))}
+        </svg>
+        <div>
+          {data.map(d => (
+            <div key={d.label} style={{ display: "flex", alignItems: "center", gap: 6, marginBottom: 6 }}>
+              <div style={{ width: 10, height: 10, borderRadius: "50%", background: d.color, flexShrink: 0 }} />
+              <span style={{ fontSize: 12, color: "#555" }}>{d.label}</span>
+              <span style={{ fontSize: 13, fontWeight: 700, marginLeft: 4 }}>{d.value}%</span>
+            </div>
+          ))}
+        </div>
       </div>
+      {/* Eau affichée séparément comme info complémentaire */}
+      {eau > 0 && (
+        <div style={{ background: "#EFF6FF", borderRadius: 10, padding: "8px 12px", display: "flex", justifyContent: "space-between", alignItems: "center" }}>
+          <div style={{ display: "flex", alignItems: "center", gap: 6 }}>
+            <div style={{ width: 10, height: 10, borderRadius: "50%", background: "#60a5fa", flexShrink: 0 }} />
+            <span style={{ fontSize: 12, color: "#555" }}>Eau corporelle</span>
+          </div>
+          <span style={{ fontSize: 13, fontWeight: 700, color: "#3b82f6" }}>{eau}%</span>
+        </div>
+      )}
     </div>
   );
 }

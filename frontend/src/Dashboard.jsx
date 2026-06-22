@@ -180,12 +180,20 @@ export default function Dashboard({ user: initialUser, onLogout }) {
           <p style={{ margin: 0, color: "rgba(255,255,255,0.75)", fontSize: 12 }}>
             Déficit calorique net {isToday ? "du jour" : `du ${formatDateLabel(selectedDate).toLowerCase()}`}
           </p>
-          <p style={{ margin: "4px 0 0", color: "white", fontWeight: 900, fontSize: 36 }}>
+          <p style={{ margin: "4px 0 2px", color: "white", fontWeight: 900, fontSize: 36 }}>
             {today.deficitNet > 0 ? "−" : "+"}{Math.abs(today.deficitNet)} kcal
           </p>
-          <p style={{ margin: 0, color: "rgba(255,255,255,0.65)", fontSize: 11 }}>
-            Dépense {today.depenseDuJour} kcal · Ingéré {today.caloriesIngerees} kcal
-          </p>
+          <div style={{ display: "flex", justifyContent: "center", alignItems: "center", gap: 8 }}>
+            <p style={{ margin: 0, color: "rgba(255,255,255,0.65)", fontSize: 11 }}>
+              Dépense {today.depenseDuJour} kcal · Ingéré {today.caloriesIngerees} kcal
+            </p>
+            <span style={{
+              background: objectifs.type === 'prise_de_masse' ? "rgba(34,197,94,0.25)" : "rgba(239,68,68,0.25)",
+              color: "white", fontSize: 10, fontWeight: 700, padding: "2px 8px", borderRadius: 99
+            }}>
+              {objectifs.type === 'prise_de_masse' ? "💪 Prise de masse" : "🔥 Sèche"}
+            </span>
+          </div>
         </div>
 
         {objectifs.proteines_g && (

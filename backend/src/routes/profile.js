@@ -11,7 +11,7 @@ router.get('/me', async (req, res) => {
   try {
     const result = await pool.query(
       `SELECT id, email, prenom, nom, sexe, age, taille_cm, poids_initial_kg, poids_objectif_kg,
-              niveau_activite, objectif_proteines_g, objectif_glucides_g, objectif_lipides_g
+              niveau_activite, objectif_proteines_g, objectif_glucides_g, objectif_lipides_g, objectif_type
        FROM users WHERE id = $1`,
       [req.userId]
     );
@@ -26,7 +26,7 @@ router.put('/me', async (req, res) => {
   try {
     const {
       prenom, nom, sexe, age, taille_cm, poids_objectif_kg, niveau_activite,
-      objectif_proteines_g, objectif_glucides_g, objectif_lipides_g
+      objectif_proteines_g, objectif_glucides_g, objectif_lipides_g, objectif_type
     } = req.body;
 
     const niveauxValides = ['sedentaire', 'leger', 'modere', 'actif', 'tres_actif'];
@@ -35,6 +35,9 @@ router.put('/me', async (req, res) => {
     }
     if (sexe && !['homme', 'femme'].includes(sexe)) {
       return res.status(400).json({ error: 'Sexe invalide' });
+    }
+    if (objectif_type && !['seche', 'prise_de_masse'].includes(objectif_type)) {
+      return res.status(400).json({ error: 'Type d\'objectif invalide' });
     }
 
     const result = await pool.query(
@@ -48,12 +51,14 @@ router.put('/me', async (req, res) => {
         niveau_activite = COALESCE($7, niveau_activite),
         objectif_proteines_g = $8,
         objectif_glucides_g = $9,
-        objectif_lipides_g = $10
-      WHERE id = $11
+        objectif_lipides_g = $10,
+        objectif_type = COALESCE($11, objectif_type)
+      WHERE id = $12
       RETURNING id, email, prenom, nom, sexe, age, taille_cm, poids_initial_kg, poids_objectif_kg,
-                niveau_activite, objectif_proteines_g, objectif_glucides_g, objectif_lipides_g`,
+                niveau_activite, objectif_proteines_g, objectif_glucides_g, objectif_lipides_g, objectif_type`,
       [prenom, nom, sexe, age, taille_cm, poids_objectif_kg, niveau_activite,
-       objectif_proteines_g ?? null, objectif_glucides_g ?? null, objectif_lipides_g ?? null, req.userId]
+       objectif_proteines_g ?? null, objectif_glucides_g ?? null, objectif_lipides_g ?? null,
+       objectif_type || null, req.userId]
     );
 
     if (result.rows.length === 0) return res.status(404).json({ error: 'Utilisateur introuvable' });
@@ -113,14 +118,16 @@ router.get('/dashboard/today', async (req, res) => {
       joursAvecDonnees: caloriesIngerees > 0 ? 1 : 0,
     });
 
-    // Objectifs journaliers selon la méthode de la vidéo
+    // Objectifs journaliers selon le type (sèche ou prise de masse)
     const objAuto = calcObjectifsJournaliers({
       sexe: user.sexe,
       poids_kg: dernierPoids,
       poids_objectif_kg: user.poids_objectif_kg,
+      objectif_type: user.objectif_type || 'seche',
     });
 
     const objectifs = {
+      type: objAuto.type,
       calories_cible: objAuto.calories,
       proteines_g: user.objectif_proteines_g != null ? Number(user.objectif_proteines_g) : objAuto.proteines,
       glucides_g: user.objectif_glucides_g != null ? Number(user.objectif_glucides_g) : objAuto.glucides,

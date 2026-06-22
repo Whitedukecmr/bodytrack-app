@@ -14,37 +14,49 @@ function DonutChart({ grasse, musculaire, osseuse, eau }) {
   if (data.length === 0) return null;
 
   const total = data.reduce((s, d) => s + d.value, 0);
-  const cx = 60, cy = 60, r = 48, strokeW = 12;
-  const circ = 2 * Math.PI * r;
+  const cx = 60, cy = 60, r = 44, innerR = 30;
 
-  // Calcul correct : chaque arc commence là où le précédent s'arrête
-  // strokeDashoffset négatif = décalage dans le sens horaire depuis le haut (-90deg)
-  const slices = [];
-  let cumul = 0;
-  data.forEach(d => {
-    const dash = (d.value / total) * circ;
-    const gap = circ - dash;
-    // L'offset positionne le début de l'arc : rotation initiale -90° + cumul déjà parcouru
-    const offset = -(cumul) + circ * 0.25; // circ*0.25 = rotation de -90° (départ en haut)
-    slices.push({ ...d, dash, gap, offset });
-    cumul += dash;
+  // Calcul des arcs SVG (path) — beaucoup plus fiable que strokeDasharray
+  function polarToCartesian(angle, radius) {
+    const rad = (angle - 90) * Math.PI / 180;
+    return {
+      x: cx + radius * Math.cos(rad),
+      y: cy + radius * Math.sin(rad),
+    };
+  }
+
+  function arcPath(startAngle, endAngle, radius, inner) {
+    const start = polarToCartesian(startAngle, radius);
+    const end = polarToCartesian(endAngle, radius);
+    const startInner = polarToCartesian(startAngle, inner);
+    const endInner = polarToCartesian(endAngle, inner);
+    const largeArc = endAngle - startAngle > 180 ? 1 : 0;
+
+    return [
+      `M ${start.x} ${start.y}`,
+      `A ${radius} ${radius} 0 ${largeArc} 1 ${end.x} ${end.y}`,
+      `L ${endInner.x} ${endInner.y}`,
+      `A ${inner} ${inner} 0 ${largeArc} 0 ${startInner.x} ${startInner.y}`,
+      'Z'
+    ].join(' ');
+  }
+
+  let currentAngle = 0;
+  const slices = data.map(d => {
+    const angle = (d.value / total) * 360;
+    const path = arcPath(currentAngle, currentAngle + angle - 0.5, r, innerR);
+    currentAngle += angle;
+    return { ...d, path };
   });
 
   return (
     <div>
       <div style={{ display: "flex", alignItems: "center", gap: 16, marginBottom: eau ? 10 : 0 }}>
         <svg width={120} height={120} viewBox="0 0 120 120" style={{ flexShrink: 0 }}>
-          {/* Fond gris */}
-          <circle cx={cx} cy={cy} r={r} fill="none" stroke="#F0F2FF" strokeWidth={strokeW} />
+          <circle cx={cx} cy={cy} r={r} fill="#F0F2FF" />
+          <circle cx={cx} cy={cy} r={innerR} fill="white" />
           {slices.map((s, i) => (
-            <circle key={i} cx={cx} cy={cy} r={r}
-              fill="none"
-              stroke={s.color}
-              strokeWidth={strokeW}
-              strokeDasharray={`${s.dash} ${s.gap}`}
-              strokeDashoffset={s.offset}
-              strokeLinecap="butt"
-            />
+            <path key={i} d={s.path} fill={s.color} />
           ))}
         </svg>
         <div>

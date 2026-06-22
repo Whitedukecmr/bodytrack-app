@@ -8,6 +8,7 @@ import EditProfile from "./EditProfile";
 import EditMealModal from "./EditMealModal";
 import BilanComplet from "./BilanComplet";
 import MealTextEntry from "./MealTextEntry";
+import BodyCompositionTab from "./BodyCompositionTab";
 
 const MOMENTS = [
   { value: "matin", label: "🌅 Matin" },
@@ -54,6 +55,7 @@ export default function Dashboard({ user: initialUser, onLogout }) {
   const [showDatePicker, setShowDatePicker] = useState(false);
   const [showEditProfile, setShowEditProfile] = useState(false);
   const [editingMeal, setEditingMeal] = useState(null);
+  const [progresView, setProgresView] = useState("overview");
 
   async function loadDay(date) {
     try {
@@ -430,6 +432,29 @@ export default function Dashboard({ user: initialUser, onLogout }) {
 
         {tab === "progres" && progress && (
           <div>
+            {/* Sous-onglets Progrès */}
+            <div style={{ display: "flex", gap: 6, marginBottom: 12 }}>
+              {[["overview", "📊 Résumé"], ["composition", "🧬 Composition"]].map(([key, label]) => (
+                <button key={key} onClick={() => setProgresView(key)} style={{
+                  flex: 1, padding: "8px 4px", borderRadius: 10, border: progresView === key ? `2px solid ${BLUE}` : "2px solid #E0E6FF",
+                  background: progresView === key ? BLUE_LIGHT : "white", color: progresView === key ? BLUE : "#888",
+                  fontWeight: 700, fontSize: 12, cursor: "pointer"
+                }}>{label}</button>
+              ))}
+            </div>
+
+            {/* Onglet Composition */}
+            {progresView === "composition" && (
+              <BodyCompositionTab
+                progress={progress}
+                bmi={today?.bmi}
+                onRefresh={refresh}
+              />
+            )}
+
+            {/* Onglet Résumé */}
+            {progresView === "overview" && (
+            <div>
             <Card style={{ marginBottom: 12 }}>
               <p style={{ margin: "0 0 14px", fontWeight: 700, fontSize: 15 }}>📊 Vue d'ensemble</p>
               <div style={{ display: "grid", gridTemplateColumns: "1fr 1fr", gap: 10, marginBottom: 12 }}>
@@ -552,6 +577,8 @@ export default function Dashboard({ user: initialUser, onLogout }) {
                 </Card>
               )}
             />
+            </div>
+            )}
           </div>
         )}
       </div>

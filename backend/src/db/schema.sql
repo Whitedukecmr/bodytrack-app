@@ -58,9 +58,12 @@ CREATE TABLE IF NOT EXISTS body_composition (
   poids_kg NUMERIC(5,1) NOT NULL,
   masse_grasse_pct NUMERIC(4,1),
   masse_musculaire_pct NUMERIC(4,1),
+  masse_osseuse_pct NUMERIC(4,1),
   eau_pct NUMERIC(4,1),
   logged_at TIMESTAMP DEFAULT NOW()
 );
+
+ALTER TABLE body_composition ADD COLUMN IF NOT EXISTS masse_osseuse_pct NUMERIC(4,1);
 
 CREATE INDEX IF NOT EXISTS idx_meals_user_date ON meals(user_id, logged_at);
 CREATE INDEX IF NOT EXISTS idx_activities_user_date ON activities(user_id, logged_at);

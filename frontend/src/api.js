@@ -41,6 +41,7 @@ export const api = {
   analyzeMealText: (description, moment) => apiCall('/vision/meal-text', { method: 'POST', body: JSON.stringify({ description, moment }) }),
   analyzeActivity: (imageBase64, type_activite) => apiCall('/vision/activity', { method: 'POST', body: JSON.stringify({ imageBase64, type_activite }) }),
   analyzeBodyComposition: (imageBase64) => apiCall('/vision/body-composition', { method: 'POST', body: JSON.stringify({ imageBase64 }) }),
+  addBodyCompositionManual: (payload) => apiCall('/vision/body-composition-manual', { method: 'POST', body: JSON.stringify(payload) }),
   updateMeal: (id, payload) => apiCall(`/entries/meals/${id}`, { method: 'PUT', body: JSON.stringify(payload) }),
   deleteMeal: (id) => apiCall(`/entries/meals/${id}`, { method: 'DELETE' }),
   updateActivity: (id, payload) => apiCall(`/entries/activities/${id}`, { method: 'PUT', body: JSON.stringify(payload) }),

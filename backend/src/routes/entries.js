@@ -88,6 +88,27 @@ router.delete('/activities/:id', async (req, res) => {
 });
 
 // ── COMPOSITION CORPORELLE (pesées) ───────────────────────────
+router.put('/body-composition/:id', async (req, res) => {
+  try {
+    const { poids_kg, masse_grasse_pct, masse_musculaire_pct, masse_osseuse_pct, eau_pct } = req.body;
+    const result = await pool.query(
+      `UPDATE body_composition SET
+        poids_kg = COALESCE($1, poids_kg),
+        masse_grasse_pct = $2,
+        masse_musculaire_pct = $3,
+        masse_osseuse_pct = $4,
+        eau_pct = $5
+      WHERE id = $6 AND user_id = $7
+      RETURNING *`,
+      [poids_kg, masse_grasse_pct ?? null, masse_musculaire_pct ?? null, masse_osseuse_pct ?? null, eau_pct ?? null, req.params.id, req.userId]
+    );
+    if (result.rows.length === 0) return res.status(404).json({ error: 'Pesée introuvable' });
+    res.json(result.rows[0]);
+  } catch (err) {
+    res.status(500).json({ error: err.message });
+  }
+});
+
 router.delete('/body-composition/:id', async (req, res) => {
   try {
     const result = await pool.query(

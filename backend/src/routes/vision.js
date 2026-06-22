@@ -185,30 +185,55 @@ router.post('/body-composition', async (req, res) => {
     const { imageBase64 } = req.body;
     if (!imageBase64) return res.status(400).json({ error: 'Image manquante' });
 
-    const prompt = `Cette image montre une capture d'écran d'une balance connectée (impédancemétrie) ou d'une application de composition corporelle. Extrais les données visibles et retourne UNIQUEMENT un JSON valide sans backticks avec ces champs exacts (mets null si non visible):
+    const prompt = `Cette image est une capture d'écran d'une application de suivi de santé ou d'une balance connectée (Huawei Health, Withings, Garmin, Apple Health, Samsung Health, Renpho, Xiaomi, etc.). Elle peut aussi être une photo directe d'un écran de balance.
+
+Extrais TOUTES les données numériques visibles liées au corps et retourne UNIQUEMENT un JSON valide sans backticks. Si une valeur n'est pas visible ou lisible, mets null. Sois très attentif aux pourcentages affichés :
+
 {
-  "poids_kg": nombre,
-  "masse_grasse_pct": nombre ou null,
-  "masse_musculaire_pct": nombre ou null,
-  "eau_pct": nombre ou null
+  "poids_kg": nombre (cherche "kg", "KG", le poids principal affiché),
+  "masse_grasse_pct": nombre ou null (cherche "masse grasse", "fat", "MG", "%"),
+  "masse_musculaire_pct": nombre ou null (cherche "masse musculaire", "muscle", "skeletal muscle"),
+  "masse_osseuse_pct": nombre ou null (cherche "masse osseuse", "bone", "os"),
+  "eau_pct": nombre ou null (cherche "eau", "water", "hydratation", "%")
 }`;
 
     const analysis = await askBedrockVision(imageBase64, prompt);
 
     if (!analysis.poids_kg) {
-      return res.status(422).json({ error: 'Poids non détecté sur l\'image, réessaie avec une photo plus claire' });
+      return res.status(422).json({ error: 'Poids non détecté sur l\'image. Réessaie avec une photo plus nette, ou utilise la saisie manuelle.' });
     }
 
     const result = await pool.query(
-      `INSERT INTO body_composition (user_id, poids_kg, masse_grasse_pct, masse_musculaire_pct, eau_pct)
-       VALUES ($1,$2,$3,$4,$5)
+      `INSERT INTO body_composition (user_id, poids_kg, masse_grasse_pct, masse_musculaire_pct, masse_osseuse_pct, eau_pct)
+       VALUES ($1,$2,$3,$4,$5,$6)
        RETURNING *`,
-      [req.userId, analysis.poids_kg, analysis.masse_grasse_pct, analysis.masse_musculaire_pct, analysis.eau_pct]
+      [req.userId, analysis.poids_kg, analysis.masse_grasse_pct, analysis.masse_musculaire_pct, analysis.masse_osseuse_pct, analysis.eau_pct]
     );
 
     res.json(result.rows[0]);
   } catch (err) {
     console.error('Erreur analyse composition:', err.message);
+    res.status(500).json({ error: err.message });
+  }
+});
+
+// ── Saisie manuelle de composition corporelle ─────────────────
+router.post('/body-composition-manual', async (req, res) => {
+  try {
+    const { poids_kg, masse_grasse_pct, masse_musculaire_pct, masse_osseuse_pct, eau_pct } = req.body;
+
+    if (!poids_kg) return res.status(400).json({ error: 'Le poids est obligatoire' });
+
+    const result = await pool.query(
+      `INSERT INTO body_composition (user_id, poids_kg, masse_grasse_pct, masse_musculaire_pct, masse_osseuse_pct, eau_pct)
+       VALUES ($1,$2,$3,$4,$5,$6)
+       RETURNING *`,
+      [req.userId, poids_kg, masse_grasse_pct || null, masse_musculaire_pct || null, masse_osseuse_pct || null, eau_pct || null]
+    );
+
+    res.json(result.rows[0]);
+  } catch (err) {
+    console.error('Erreur saisie manuelle composition:', err.message);
     res.status(500).json({ error: err.message });
   }
 });

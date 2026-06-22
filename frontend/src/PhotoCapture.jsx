@@ -1,5 +1,6 @@
 import { useState, useRef } from "react";
 import { BLUE, BLUE_LIGHT, Btn, ErrorBox } from "./ui";
+import { compressImage } from "./imageUtils";
 
 export default function PhotoCapture({ title, description, icon, onAnalyze, renderResult, extraControls }) {
   const [image, setImage] = useState(null);
@@ -7,18 +8,22 @@ export default function PhotoCapture({ title, description, icon, onAnalyze, rend
   const [loading, setLoading] = useState(false);
   const [result, setResult] = useState(null);
   const [error, setError] = useState(null);
+  const [compressing, setCompressing] = useState(false);
   const fileRef = useRef();
 
-  const handleFile = (file) => {
+  const handleFile = async (file) => {
     if (!file) return;
-    const reader = new FileReader();
-    reader.onload = (e) => {
-      setImage(e.target.result);
-      setImageBase64(e.target.result.split(",")[1]);
+    setCompressing(true);
+    setError(null);
+    try {
+      const { dataUrl, base64 } = await compressImage(file);
+      setImage(dataUrl);
+      setImageBase64(base64);
       setResult(null);
-      setError(null);
-    };
-    reader.readAsDataURL(file);
+    } catch (e) {
+      setError("Impossible de lire cette image.");
+    }
+    setCompressing(false);
   };
 
   const analyze = async () => {
@@ -49,18 +54,22 @@ export default function PhotoCapture({ title, description, icon, onAnalyze, rend
           background: BLUE_LIGHT, minHeight: 160, display: "flex", alignItems: "center",
           justifyContent: "center", overflow: "hidden", marginBottom: 14
         }}>
-          {image
-            ? <img src={image} alt="" style={{ width: "100%", maxHeight: 220, objectFit: "cover" }} />
-            : <div style={{ textAlign: "center", padding: 20 }}>
-                <div style={{ fontSize: 36, marginBottom: 6 }}>{icon}</div>
-                <p style={{ fontWeight: 600, color: BLUE, margin: 0, fontSize: 14 }}>Appuie pour ajouter une photo</p>
-                <p style={{ fontSize: 11, color: "#888", margin: "4px 0 0" }}>Caméra ou galerie</p>
-              </div>}
+          {compressing
+            ? <div style={{ textAlign: "center", padding: 20 }}>
+                <p style={{ fontWeight: 600, color: BLUE, margin: 0, fontSize: 14 }}>Compression en cours...</p>
+              </div>
+            : image
+              ? <img src={image} alt="" style={{ width: "100%", maxHeight: 220, objectFit: "cover" }} />
+              : <div style={{ textAlign: "center", padding: 20 }}>
+                  <div style={{ fontSize: 36, marginBottom: 6 }}>{icon}</div>
+                  <p style={{ fontWeight: 600, color: BLUE, margin: 0, fontSize: 14 }}>Appuie pour ajouter une photo</p>
+                  <p style={{ fontSize: 11, color: "#888", margin: "4px 0 0" }}>Caméra ou galerie</p>
+                </div>}
           <input ref={fileRef} type="file" accept="image/*" style={{ display: "none" }} onChange={e => handleFile(e.target.files[0])} />
         </div>
       )}
 
-      {image && !result && <Btn onClick={analyze} disabled={loading}>{loading ? "Analyse en cours..." : "Analyser"}</Btn>}
+      {image && !result && !compressing && <Btn onClick={analyze} disabled={loading}>{loading ? "Analyse en cours..." : "Analyser"}</Btn>}
 
       <ErrorBox>{error}</ErrorBox>
 

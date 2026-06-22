@@ -68,7 +68,7 @@ async function askBedrockText(prompt) {
   return JSON.parse(text);
 }
 
-// ── Analyse d'un repas par photo ──────────────────────────────
+// ── Analyse repas par photo seule ────────────────────────────
 router.post('/meal', async (req, res) => {
   try {
     const { imageBase64, moment } = req.body;
@@ -88,15 +88,12 @@ router.post('/meal', async (req, res) => {
 }`;
 
     const analysis = await askBedrockVision(imageBase64, prompt);
-
     const result = await pool.query(
       `INSERT INTO meals (user_id, moment, nom_repas, calories, proteines_g, glucides_g, lipides_g, fibres_g, avis_sante, conseil, score_sante)
-       VALUES ($1,$2,$3,$4,$5,$6,$7,$8,$9,$10,$11)
-       RETURNING *`,
+       VALUES ($1,$2,$3,$4,$5,$6,$7,$8,$9,$10,$11) RETURNING *`,
       [req.userId, moment || 'collation', analysis.nom_repas, analysis.calories, analysis.proteines_g,
        analysis.glucides_g, analysis.lipides_g, analysis.fibres_g, analysis.avis_sante, analysis.conseil, analysis.score_sante]
     );
-
     res.json(result.rows[0]);
   } catch (err) {
     console.error('Erreur analyse repas:', err.message);
@@ -104,19 +101,15 @@ router.post('/meal', async (req, res) => {
   }
 });
 
-// ── Analyse d'un repas par saisie manuelle d'ingrédients (texte libre) ─
+// ── Analyse repas par texte seul ──────────────────────────────
 router.post('/meal-text', async (req, res) => {
   try {
     const { description, moment } = req.body;
-    if (!description || !description.trim()) {
-      return res.status(400).json({ error: 'Description des ingrédients manquante' });
-    }
+    if (!description?.trim()) return res.status(400).json({ error: 'Description manquante' });
 
-    const prompt = `Voici une liste d'ingrédients et de quantités précises (en grammes ou unités) saisie manuellement par l'utilisateur pour un repas :
-
+    const prompt = `Voici une liste d'ingrédients et de quantités précises saisie manuellement :
 "${description}"
-
-Calcule les valeurs nutritionnelles à partir de ces quantités exactes et retourne UNIQUEMENT un JSON valide sans backticks avec ces champs exacts:
+Calcule les valeurs nutritionnelles et retourne UNIQUEMENT un JSON valide sans backticks:
 {
   "nom_repas": "nom court résumant le repas",
   "calories": nombre,
@@ -125,23 +118,58 @@ Calcule les valeurs nutritionnelles à partir de ces quantités exactes et retou
   "lipides_g": nombre,
   "fibres_g": nombre,
   "avis_sante": "commentaire nutritionnel court en francais",
-  "conseil": "conseil de coach axe sur la recuperation, la gestion de l'insuline et la satiete, en francais",
+  "conseil": "conseil de coach en francais",
   "score_sante": nombre entre 1 et 10
 }`;
 
     const analysis = await askBedrockText(prompt);
-
     const result = await pool.query(
       `INSERT INTO meals (user_id, moment, nom_repas, calories, proteines_g, glucides_g, lipides_g, fibres_g, avis_sante, conseil, score_sante)
-       VALUES ($1,$2,$3,$4,$5,$6,$7,$8,$9,$10,$11)
-       RETURNING *`,
+       VALUES ($1,$2,$3,$4,$5,$6,$7,$8,$9,$10,$11) RETURNING *`,
       [req.userId, moment || 'collation', analysis.nom_repas, analysis.calories, analysis.proteines_g,
        analysis.glucides_g, analysis.lipides_g, analysis.fibres_g, analysis.avis_sante, analysis.conseil, analysis.score_sante]
     );
-
     res.json(result.rows[0]);
   } catch (err) {
     console.error('Erreur analyse repas texte:', err.message);
+    res.status(500).json({ error: err.message });
+  }
+});
+
+// ── Analyse repas combinée : image + contexte texte ───────────
+router.post('/meal-combined', async (req, res) => {
+  try {
+    const { imageBase64, description, moment } = req.body;
+    if (!imageBase64) return res.status(400).json({ error: 'Image manquante' });
+
+    const contextNote = description?.trim()
+      ? `\nL'utilisateur précise aussi : "${description}". Tiens compte de ce contexte pour affiner l'analyse.`
+      : '';
+
+    const prompt = `Analyse ce repas à partir de la photo.${contextNote}
+Retourne UNIQUEMENT un JSON valide sans backticks:
+{
+  "nom_repas": "nom du plat",
+  "calories": nombre,
+  "proteines_g": nombre,
+  "glucides_g": nombre,
+  "lipides_g": nombre,
+  "fibres_g": nombre,
+  "avis_sante": "commentaire nutritionnel court en francais",
+  "conseil": "conseil de coach en francais",
+  "score_sante": nombre entre 1 et 10
+}`;
+
+    const analysis = await askBedrockVision(imageBase64, prompt);
+    const result = await pool.query(
+      `INSERT INTO meals (user_id, moment, nom_repas, calories, proteines_g, glucides_g, lipides_g, fibres_g, avis_sante, conseil, score_sante)
+       VALUES ($1,$2,$3,$4,$5,$6,$7,$8,$9,$10,$11) RETURNING *`,
+      [req.userId, moment || 'collation', analysis.nom_repas, analysis.calories, analysis.proteines_g,
+       analysis.glucides_g, analysis.lipides_g, analysis.fibres_g, analysis.avis_sante, analysis.conseil, analysis.score_sante]
+    );
+    res.json(result.rows[0]);
+  } catch (err) {
+    console.error('Erreur analyse repas combinée:', err.message);
     res.status(500).json({ error: err.message });
   }
 });

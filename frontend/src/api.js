@@ -39,6 +39,7 @@ export const api = {
   dashboardProgress: () => apiCall('/profile/dashboard/progress'),
   analyzeMeal: (imageBase64, moment) => apiCall('/vision/meal', { method: 'POST', body: JSON.stringify({ imageBase64, moment }) }),
   analyzeMealText: (description, moment) => apiCall('/vision/meal-text', { method: 'POST', body: JSON.stringify({ description, moment }) }),
+  analyzeMealCombined: (imageBase64, description, moment) => apiCall('/vision/meal-combined', { method: 'POST', body: JSON.stringify({ imageBase64, description, moment }) }),
   analyzeActivity: (imageBase64, type_activite) => apiCall('/vision/activity', { method: 'POST', body: JSON.stringify({ imageBase64, type_activite }) }),
   analyzeBodyComposition: (imageBase64) => apiCall('/vision/body-composition', { method: 'POST', body: JSON.stringify({ imageBase64 }) }),
   addBodyCompositionManual: (payload) => apiCall('/vision/body-composition-manual', { method: 'POST', body: JSON.stringify(payload) }),

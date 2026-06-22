@@ -9,6 +9,7 @@ import EditMealModal from "./EditMealModal";
 import BilanComplet from "./BilanComplet";
 import MealTextEntry from "./MealTextEntry";
 import BodyCompositionTab from "./BodyCompositionTab";
+import MealChat from "./MealChat";
 
 const MOMENTS = [
   { value: "matin", label: "🌅 Matin" },
@@ -369,36 +370,15 @@ export default function Dashboard({ user: initialUser, onLogout }) {
 
         {tab === "repas" && (
           <div>
-            <div style={{ display: "flex", gap: 6, marginBottom: 14 }}>
-              {[["photo", "📷 Photo"], ["manuel", "✍️ Saisie manuelle"]].map(([key, label]) => (
-                <button key={key} onClick={() => setRepasMode(key)} style={{
-                  flex: 1, padding: "10px 4px", borderRadius: 10, border: repasMode === key ? `2px solid ${BLUE}` : "2px solid #E0E6FF",
-                  background: repasMode === key ? BLUE_LIGHT : "white", color: repasMode === key ? BLUE : "#888",
-                  fontWeight: 700, fontSize: 13, cursor: "pointer"
-                }}>{label}</button>
-              ))}
-            </div>
-
             <div style={{ marginBottom: 14 }}>
               <Select label="Moment de la journée" value={moment} onChange={setMoment} options={MOMENTS} />
             </div>
-
-            {repasMode === "photo" && (
-              <PhotoCapture
-                title="Analyse ton repas"
-                description="Prends ou importe une photo pour obtenir les valeurs nutritionnelles."
-                icon="🍽️"
-                onAnalyze={async (b64) => { const r = await api.analyzeMeal(b64, moment); await refresh(); return r; }}
-                renderResult={renderMealResult}
-              />
-            )}
-
-            {repasMode === "manuel" && (
-              <MealTextEntry
-                onAnalyze={async (description) => { const r = await api.analyzeMealText(description, moment); await refresh(); return r; }}
-                renderResult={renderMealResult}
-              />
-            )}
+            <MealChat
+              onAnalyzeText={async (description) => { const r = await api.analyzeMealText(description, moment); await refresh(); return r; }}
+              onAnalyzeImage={async (b64) => { const r = await api.analyzeMeal(b64, moment); await refresh(); return r; }}
+              onAnalyzeBoth={async (b64, description) => { const r = await api.analyzeMealCombined(b64, description, moment); await refresh(); return r; }}
+              renderResult={renderMealResult}
+            />
           </div>
         )}
 

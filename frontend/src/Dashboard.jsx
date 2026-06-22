@@ -271,17 +271,22 @@ export default function Dashboard({ user: initialUser, onLogout }) {
                     <p style={{ margin: "0 0 10px", fontWeight: 700, fontSize: 14 }}>{g.label}</p>
                     {g.repas.length === 0 && <p style={{ color: "#aaa", fontSize: 13, margin: 0 }}>Aucun repas loggé</p>}
                     {g.repas.map(r => (
-                      <div key={r.id} onClick={() => setEditingMeal(r)} style={{
-                        display: "flex", justifyContent: "space-between", alignItems: "center",
-                        padding: "8px 0", borderTop: "1px solid #F0F2FF", cursor: "pointer"
+                      <div key={r.id} style={{
+                        padding: "10px 0", borderTop: "1px solid #F0F2FF"
                       }}>
-                        <div>
-                          <p style={{ margin: 0, fontWeight: 600, fontSize: 13 }}>{r.nom_repas}</p>
-                          <p style={{ margin: 0, fontSize: 11, color: "#888" }}>{r.proteines_g}g P · {r.glucides_g}g G · {r.lipides_g}g L</p>
-                        </div>
-                        <div style={{ display: "flex", alignItems: "center", gap: 8 }}>
-                          <div style={{ fontWeight: 800, color: BLUE, fontSize: 15 }}>{r.calories} kcal</div>
-                          <span style={{ color: "#ccc", fontSize: 13 }}>✎</span>
+                        <div style={{ display: "flex", justifyContent: "space-between", alignItems: "flex-start", gap: 8 }}>
+                          <div style={{ flex: 1, minWidth: 0 }}>
+                            <p style={{ margin: 0, fontWeight: 600, fontSize: 13, wordBreak: "break-word" }}>{r.nom_repas}</p>
+                            <p style={{ margin: 0, fontSize: 11, color: "#888" }}>{r.proteines_g}g P · {r.glucides_g}g G · {r.lipides_g}g L</p>
+                          </div>
+                          <div style={{ display: "flex", flexDirection: "column", alignItems: "flex-end", gap: 6, flexShrink: 0 }}>
+                            <div style={{ fontWeight: 800, color: BLUE, fontSize: 15 }}>{r.calories} kcal</div>
+                            <button onClick={() => setEditingMeal(r)} style={{
+                              padding: "4px 10px", borderRadius: 8, border: `1px solid #E0E6FF`,
+                              background: "#F4F6FF", color: BLUE, fontSize: 11, fontWeight: 600,
+                              cursor: "pointer", whiteSpace: "nowrap"
+                            }}>✎ Modifier</button>
+                          </div>
                         </div>
                       </div>
                     ))}

@@ -5,8 +5,6 @@ import PhotoCapture from "./PhotoCapture";
 
 // ── Graphique donut SVG pour la composition corporelle ────────
 function DonutChart({ grasse, musculaire, osseuse, eau }) {
-  // Le donut n'affiche que grasse + musculaire + osseuse (total = ~100%)
-  // L'eau est une mesure séparée (elle est incluse dans la masse musculaire), pas dans le donut
   const data = [
     { label: "Masse grasse", value: grasse || 0, color: ORANGE },
     { label: "Masse musculaire", value: musculaire || 0, color: GREEN },
@@ -16,28 +14,35 @@ function DonutChart({ grasse, musculaire, osseuse, eau }) {
   if (data.length === 0) return null;
 
   const total = data.reduce((s, d) => s + d.value, 0);
-  const cx = 60, cy = 60, r = 48, strokeW = 14;
+  const cx = 60, cy = 60, r = 48, strokeW = 12;
   const circ = 2 * Math.PI * r;
 
-  let offset = 0;
-  const slices = data.map(d => {
-    const pct = d.value / total;
-    const dash = pct * circ;
-    const slice = { ...d, dash, offset };
-    offset += dash;
-    return slice;
+  // Calcul correct : chaque arc commence là où le précédent s'arrête
+  // strokeDashoffset négatif = décalage dans le sens horaire depuis le haut (-90deg)
+  const slices = [];
+  let cumul = 0;
+  data.forEach(d => {
+    const dash = (d.value / total) * circ;
+    const gap = circ - dash;
+    // L'offset positionne le début de l'arc : rotation initiale -90° + cumul déjà parcouru
+    const offset = -(cumul) + circ * 0.25; // circ*0.25 = rotation de -90° (départ en haut)
+    slices.push({ ...d, dash, gap, offset });
+    cumul += dash;
   });
 
   return (
     <div>
       <div style={{ display: "flex", alignItems: "center", gap: 16, marginBottom: eau ? 10 : 0 }}>
         <svg width={120} height={120} viewBox="0 0 120 120" style={{ flexShrink: 0 }}>
+          {/* Fond gris */}
+          <circle cx={cx} cy={cy} r={r} fill="none" stroke="#F0F2FF" strokeWidth={strokeW} />
           {slices.map((s, i) => (
             <circle key={i} cx={cx} cy={cy} r={r}
-              fill="none" stroke={s.color} strokeWidth={strokeW}
-              strokeDasharray={`${s.dash} ${circ - s.dash}`}
-              strokeDashoffset={-s.offset}
-              transform="rotate(-90 60 60)"
+              fill="none"
+              stroke={s.color}
+              strokeWidth={strokeW}
+              strokeDasharray={`${s.dash} ${s.gap}`}
+              strokeDashoffset={s.offset}
               strokeLinecap="butt"
             />
           ))}
@@ -52,7 +57,6 @@ function DonutChart({ grasse, musculaire, osseuse, eau }) {
           ))}
         </div>
       </div>
-      {/* Eau affichée séparément comme info complémentaire */}
       {eau > 0 && (
         <div style={{ background: "#EFF6FF", borderRadius: 10, padding: "8px 12px", display: "flex", justifyContent: "space-between", alignItems: "center" }}>
           <div style={{ display: "flex", alignItems: "center", gap: 6 }}>

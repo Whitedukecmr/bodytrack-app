@@ -1,5 +1,6 @@
 import { useState } from "react";
 import { Btn, ErrorBox, BLUE, BLUE_LIGHT } from "./ui";
+import VoiceInput from "./VoiceInput";
 
 export default function MealTextEntry({ onAnalyze, renderResult }) {
   const [description, setDescription] = useState("");
@@ -42,18 +43,25 @@ export default function MealTextEntry({ onAnalyze, renderResult }) {
       <label style={{ display: "block", fontWeight: 600, fontSize: 13, color: "#555", marginBottom: 8 }}>
         Liste tes ingrédients et quantités
       </label>
-      <textarea
-        value={description}
-        onChange={e => setDescription(e.target.value)}
-        placeholder="Ex: 150g de riz blanc cuit, 200g de blanc de poulet grillé, 1 cuillère à soupe d'huile d'olive, 100g de brocolis"
-        rows={6}
-        style={{
-          width: "100%", padding: "13px 14px", borderRadius: 12, border: "2px solid #E0E6FF",
-          fontSize: 15, fontFamily: "inherit", resize: "vertical", color: "#1a1a2e", boxSizing: "border-box"
-        }}
-      />
-      <p style={{ fontSize: 11, color: "#999", margin: "6px 0 16px" }}>
-        Plus tu précises les grammages, plus l'estimation des macros sera fiable.
+
+      <div style={{ position: "relative", marginBottom: 6 }}>
+        <textarea
+          value={description}
+          onChange={e => setDescription(e.target.value)}
+          placeholder="Ex: 150g de riz blanc cuit, 200g de blanc de poulet grillé, 1 cuillère d'huile d'olive... ou dicte 🎙️"
+          rows={5}
+          style={{
+            width: "100%", padding: "13px 52px 13px 14px", borderRadius: 12, border: "2px solid #E0E6FF",
+            fontSize: 15, fontFamily: "inherit", resize: "none", color: "#1a1a2e", boxSizing: "border-box"
+          }}
+        />
+        <div style={{ position: "absolute", bottom: 10, right: 10 }}>
+          <VoiceInput onTranscript={text => setDescription(prev => prev ? prev + " " + text : text)} />
+        </div>
+      </div>
+
+      <p style={{ fontSize: 11, color: "#999", margin: "0 0 16px" }}>
+        Plus tu précises les grammages, plus l'estimation des macros sera fiable. Tu peux aussi dicter 🎙️
       </p>
 
       <ErrorBox>{error}</ErrorBox>

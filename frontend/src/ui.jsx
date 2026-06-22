@@ -1,3 +1,5 @@
+import { useState } from "react";
+
 export const BLUE = "#3B5BFC";
 export const BLUE_DARK = "#2742d4";
 export const BLUE_LIGHT = "#EEF1FF";
@@ -5,7 +7,7 @@ export const GREEN = "#22c55e";
 export const ORANGE = "#f59e0b";
 export const RED = "#ef4444";
 
-export function Field({ label, value, onChange, type = "text", unit, placeholder }) {
+export function Field({ label, value, onChange, type = "text", unit, placeholder, voice }) {
   return (
     <div style={{ marginBottom: 14 }}>
       <label style={{ display: "block", fontWeight: 600, fontSize: 13, color: "#555", marginBottom: 6 }}>{label}</label>
@@ -13,8 +15,44 @@ export function Field({ label, value, onChange, type = "text", unit, placeholder
         <input type={type} value={value} onChange={e => onChange(e.target.value)} placeholder={placeholder}
           style={{ flex: 1, border: "none", outline: "none", padding: "13px 14px", fontSize: 16, background: "transparent", color: "#1a1a2e" }} />
         {unit && <span style={{ padding: "0 14px", color: "#888", fontWeight: 600, fontSize: 13 }}>{unit}</span>}
+        {voice && (
+          <div style={{ padding: "0 8px 0 0" }}>
+            <VoiceInputInline onTranscript={voice} />
+          </div>
+        )}
       </div>
     </div>
+  );
+}
+
+// Version inline légère pour les champs Field (sans import circulaire)
+function VoiceInputInline({ onTranscript }) {
+  const [listening, setListening] = useState(false);
+  const supported = !!(window.SpeechRecognition || window.webkitSpeechRecognition);
+  if (!supported) return null;
+
+  function toggle() {
+    const SR = window.SpeechRecognition || window.webkitSpeechRecognition;
+    const r = new SR();
+    r.lang = 'fr-FR';
+    r.continuous = false;
+    r.interimResults = false;
+    r.onstart = () => setListening(true);
+    r.onend = () => setListening(false);
+    r.onresult = e => onTranscript(e.results[0][0].transcript);
+    r.onerror = () => setListening(false);
+    r.start();
+  }
+
+  return (
+    <button onClick={toggle} style={{
+      width: 30, height: 30, borderRadius: "50%", border: "none", cursor: "pointer",
+      background: listening ? RED : BLUE_LIGHT, fontSize: 14,
+      display: "flex", alignItems: "center", justifyContent: "center",
+      animation: listening ? "pulse 1s infinite" : "none",
+    }}>
+      {listening ? "⏹" : "🎙️"}
+    </button>
   );
 }
 

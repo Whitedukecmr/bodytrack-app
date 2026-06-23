@@ -1,15 +1,18 @@
 import { useState, useEffect } from "react";
 import { api, clearToken } from "./api";
-import { Card, BLUE, BLUE_LIGHT, GREEN, ORANGE, RED, Select } from "./ui";
+import {
+  Card, GradientCard, Btn, BLUE, BLUE_LIGHT, BLUE_DARK, GREEN, GREEN_LIGHT,
+  ORANGE, ORANGE_LIGHT, RED, RED_LIGHT, PURPLE, BG, TEXT, TEXT_MUTED,
+  GRADIENT_HEADER, Select, StatCard, ProgressBar, SectionTitle, Badge
+} from "./ui";
 import PhotoCapture from "./PhotoCapture";
 import DeficitChart from "./DeficitChart";
 import WeightChart from "./WeightChart";
 import EditProfile from "./EditProfile";
 import EditMealModal from "./EditMealModal";
 import BilanComplet from "./BilanComplet";
-import MealTextEntry from "./MealTextEntry";
-import BodyCompositionTab from "./BodyCompositionTab";
 import MealChat from "./MealChat";
+import BodyCompositionTab from "./BodyCompositionTab";
 
 const MOMENTS = [
   { value: "matin", label: "🌅 Matin" },
@@ -19,7 +22,7 @@ const MOMENTS = [
 ];
 
 const ACTIVITY_TYPES = [
-  { value: "marche", label: "🚶 Marche sur tapis" },
+  { value: "marche", label: "🚶 Marche / Tapis" },
   { value: "musculation", label: "🏋️ Musculation" },
   { value: "rameur", label: "🚣 Rameur" },
   { value: "natation", label: "🏊 Natation" },
@@ -28,6 +31,7 @@ const ACTIVITY_TYPES = [
 ];
 
 function scoreColor(s) { return s >= 7 ? GREEN : s >= 4 ? ORANGE : RED; }
+function scoreBg(s) { return s >= 7 ? GREEN_LIGHT : s >= 4 ? ORANGE_LIGHT : RED_LIGHT; }
 function todayStr() { return new Date().toISOString().slice(0, 10); }
 function addDays(dateStr, n) {
   const d = new Date(dateStr + "T00:00:00");
@@ -42,6 +46,59 @@ function formatDateLabel(dateStr) {
   return d.toLocaleDateString('fr-FR', { weekday: 'long', day: 'numeric', month: 'long' });
 }
 
+// ── Macro bar dans le header ───────────────────────────────────
+function MacroBar({ label, value, max, color }) {
+  const pct = max > 0 ? Math.min(100, (value / max) * 100) : 0;
+  return (
+    <div style={{ marginBottom: 7 }}>
+      <div style={{ display: "flex", justifyContent: "space-between", marginBottom: 3 }}>
+        <span style={{ fontSize: 10, color: "rgba(255,255,255,0.7)", fontWeight: 600 }}>{label}</span>
+        <span style={{ fontSize: 10, color: color, fontWeight: 700 }}>{value} / {max}{label === "Calories" ? "" : "g"}</span>
+      </div>
+      <div style={{ background: "rgba(255,255,255,0.15)", borderRadius: 99, height: 5, overflow: "hidden" }}>
+        <div style={{ background: color, height: "100%", borderRadius: 99, width: `${pct}%`, transition: "width 0.4s ease" }} />
+      </div>
+    </div>
+  );
+}
+
+// ── Card repas dans le journal ─────────────────────────────────
+function MealGroup({ moment, repas, onEdit }) {
+  const hasRepas = repas.length > 0;
+  return (
+    <div style={{
+      background: "white", borderRadius: 18, padding: "14px 16px",
+      marginBottom: 10, boxShadow: "0 2px 16px rgba(59,91,252,0.06)",
+      border: "1px solid #F0F2FF"
+    }}>
+      <p style={{ margin: "0 0 8px", fontWeight: 800, fontSize: 13, color: TEXT }}>{moment.label}</p>
+      {!hasRepas && <p style={{ color: "#C5CDFF", fontSize: 13, margin: 0 }}>Aucun repas loggé</p>}
+      {repas.map(r => (
+        <div key={r.id} style={{ padding: "9px 0", borderTop: "1px solid #F4F6FF" }}>
+          <div style={{ display: "flex", justifyContent: "space-between", alignItems: "flex-start", gap: 8 }}>
+            <div style={{ flex: 1, minWidth: 0 }}>
+              <p style={{ margin: 0, fontWeight: 700, fontSize: 13, color: TEXT, wordBreak: "break-word" }}>{r.nom_repas}</p>
+              <div style={{ display: "flex", gap: 6, marginTop: 3, flexWrap: "wrap" }}>
+                <span style={{ fontSize: 10, background: "#EEF1FF", color: BLUE, borderRadius: 6, padding: "2px 7px", fontWeight: 600 }}>P {r.proteines_g}g</span>
+                <span style={{ fontSize: 10, background: ORANGE_LIGHT, color: ORANGE, borderRadius: 6, padding: "2px 7px", fontWeight: 600 }}>G {r.glucides_g}g</span>
+                <span style={{ fontSize: 10, background: RED_LIGHT, color: RED, borderRadius: 6, padding: "2px 7px", fontWeight: 600 }}>L {r.lipides_g}g</span>
+              </div>
+            </div>
+            <div style={{ display: "flex", flexDirection: "column", alignItems: "flex-end", gap: 5, flexShrink: 0 }}>
+              <span style={{ fontWeight: 800, fontSize: 15, color: BLUE }}>{r.calories} kcal</span>
+              <button onClick={() => onEdit(r)} style={{
+                padding: "4px 10px", borderRadius: 8, border: `1.5px solid #E0E6FF`,
+                background: "#F8F9FF", color: BLUE, fontSize: 11, fontWeight: 700,
+                cursor: "pointer"
+              }}>✎ Modifier</button>
+            </div>
+          </div>
+        </div>
+      ))}
+    </div>
+  );
+}
+
 export default function Dashboard({ user: initialUser, onLogout }) {
   const [user, setUser] = useState(initialUser);
   const [tab, setTab] = useState("journal");
@@ -51,7 +108,6 @@ export default function Dashboard({ user: initialUser, onLogout }) {
   const [range, setRange] = useState(null);
   const [progress, setProgress] = useState(null);
   const [moment, setMoment] = useState("midi");
-  const [repasMode, setRepasMode] = useState("photo");
   const [activityType, setActivityType] = useState("marche");
   const [showDatePicker, setShowDatePicker] = useState(false);
   const [showEditProfile, setShowEditProfile] = useState(false);
@@ -59,26 +115,17 @@ export default function Dashboard({ user: initialUser, onLogout }) {
   const [progresView, setProgresView] = useState("overview");
 
   async function loadDay(date) {
-    try {
-      const t = await api.dashboardToday(date === todayStr() ? null : date);
-      setToday(t);
-    } catch (e) { console.error(e); }
+    try { setToday(await api.dashboardToday(date === todayStr() ? null : date)); }
+    catch (e) { console.error(e); }
   }
-
   async function loadRange(days) {
-    try {
-      const r = await api.dashboardRange(days);
-      setRange(r);
-    } catch (e) { console.error(e); }
+    try { setRange(await api.dashboardRange(days)); }
+    catch (e) { console.error(e); }
   }
-
   async function loadProgress() {
-    try {
-      const p = await api.dashboardProgress();
-      setProgress(p);
-    } catch (e) { console.error(e); }
+    try { setProgress(await api.dashboardProgress()); }
+    catch (e) { console.error(e); }
   }
-
   async function refresh() {
     await loadDay(selectedDate);
     await loadProgress();
@@ -93,274 +140,276 @@ export default function Dashboard({ user: initialUser, onLogout }) {
     if (journalView === "mois") loadRange(30);
   }, [journalView]);
 
-  function logout() { clearToken(); onLogout(); }
+  function goToDay(date) { setSelectedDate(date); setJournalView("jour"); setTab("journal"); }
 
-  function goToDay(date) {
-    setSelectedDate(date);
-    setJournalView("jour");
-    setTab("journal");
-  }
-
-  async function handleProfileUpdated(updatedUser) {
-    setUser(updatedUser);
-    await refresh();
-  }
-
-  async function handleMealSaved(id, payload) {
-    await api.updateMeal(id, payload);
-    await refresh();
-  }
-
-  async function handleMealDeleted(id) {
-    await api.deleteMeal(id);
-    await refresh();
-  }
-
-  async function handleDeleteBodyComposition(id) {
-    await api.deleteBodyComposition(id);
-    await loadProgress();
-    await loadDay(selectedDate);
-  }
+  async function handleProfileUpdated(u) { setUser(u); await refresh(); }
+  async function handleMealSaved(id, payload) { await api.updateMeal(id, payload); await refresh(); }
+  async function handleMealDeleted(id) { await api.deleteMeal(id); await refresh(); }
+  async function handleDeleteBodyComposition(id) { await api.deleteBodyComposition(id); await loadProgress(); await loadDay(selectedDate); }
 
   function renderMealResult(r) {
     return (
-      <Card>
-        <div style={{ display: "flex", justifyContent: "space-between", alignItems: "center", marginBottom: 14 }}>
-          <h3 style={{ fontWeight: 800, fontSize: 17, margin: 0 }}>{r.nom_repas}</h3>
-          <div style={{ background: scoreColor(r.score_sante), color: "white", borderRadius: 99, padding: "4px 12px", fontWeight: 700, fontSize: 13 }}>{r.score_sante}/10</div>
+      <div style={{ background: "white", borderRadius: 18, padding: "16px", boxShadow: "0 4px 20px rgba(59,91,252,0.1)", border: "1px solid #F0F2FF" }}>
+        <div style={{ display: "flex", justifyContent: "space-between", alignItems: "flex-start", marginBottom: 14, gap: 8 }}>
+          <h3 style={{ fontWeight: 800, fontSize: 16, margin: 0, color: TEXT, flex: 1 }}>{r.nom_repas}</h3>
+          <div style={{
+            background: scoreBg(r.score_sante), color: scoreColor(r.score_sante),
+            borderRadius: 99, padding: "4px 12px", fontWeight: 800, fontSize: 12, flexShrink: 0
+          }}>{r.score_sante}/10</div>
         </div>
-        <div style={{ background: BLUE_LIGHT, borderRadius: 14, padding: 14, textAlign: "center", marginBottom: 14 }}>
-          <div style={{ fontSize: 32, fontWeight: 900, color: BLUE }}>{r.calories}</div>
-          <div style={{ fontSize: 13, color: "#666" }}>calories</div>
-        </div>
+
+        <GradientCard style={{ marginBottom: 14, textAlign: "center", padding: "14px" }}>
+          <div style={{ fontSize: 36, fontWeight: 900, color: "white" }}>{r.calories}</div>
+          <div style={{ fontSize: 12, color: "rgba(255,255,255,0.75)" }}>calories</div>
+        </GradientCard>
+
         <div style={{ display: "grid", gridTemplateColumns: "1fr 1fr 1fr", gap: 8, marginBottom: 14 }}>
-          {[["Protéines", r.proteines_g, BLUE], ["Glucides", r.glucides_g, ORANGE], ["Lipides", r.lipides_g, RED]].map(([l, v, c]) => (
-            <div key={l} style={{ background: "#F7F8FF", borderRadius: 12, padding: "10px 6px", textAlign: "center" }}>
+          {[["Protéines", r.proteines_g, BLUE, "#EEF1FF"], ["Glucides", r.glucides_g, ORANGE, ORANGE_LIGHT], ["Lipides", r.lipides_g, RED, RED_LIGHT]].map(([l, v, c, bg]) => (
+            <div key={l} style={{ background: bg, borderRadius: 12, padding: "10px 6px", textAlign: "center" }}>
               <div style={{ fontWeight: 800, fontSize: 16, color: c }}>{v}g</div>
-              <div style={{ fontSize: 10, color: "#888" }}>{l}</div>
+              <div style={{ fontSize: 10, color: TEXT_MUTED, fontWeight: 600 }}>{l}</div>
             </div>
           ))}
         </div>
-        <div style={{ background: "#F0FFF4", borderRadius: 12, padding: 12, marginBottom: 8 }}>
-          <p style={{ margin: 0, fontSize: 13, color: "#166534" }}>{r.avis_sante}</p>
+
+        <div style={{ background: GREEN_LIGHT, borderRadius: 12, padding: 12, marginBottom: 8, borderLeft: `3px solid ${GREEN}` }}>
+          <p style={{ margin: 0, fontSize: 13, color: "#166534", lineHeight: 1.5 }}>{r.avis_sante}</p>
         </div>
-        <div style={{ background: BLUE_LIGHT, borderRadius: 12, padding: 12 }}>
-          <p style={{ margin: 0, fontSize: 13, color: "#2742d4" }}>{r.conseil}</p>
+        <div style={{ background: BLUE_LIGHT, borderRadius: 12, padding: 12, borderLeft: `3px solid ${BLUE}` }}>
+          <p style={{ margin: 0, fontSize: 13, color: BLUE_DARK, lineHeight: 1.5 }}>{r.conseil}</p>
         </div>
-      </Card>
+      </div>
     );
   }
 
-  if (!today) return <div style={{ padding: 40, textAlign: "center", color: "#888" }}>Chargement...</div>;
+  if (!today) return (
+    <div style={{ minHeight: "100vh", display: "flex", alignItems: "center", justifyContent: "center", background: BG, fontFamily: "'Sora', sans-serif" }}>
+      <div style={{ textAlign: "center" }}>
+        <div style={{ fontSize: 36, marginBottom: 12 }}>⚡</div>
+        <p style={{ color: TEXT_MUTED, fontSize: 14 }}>Chargement...</p>
+      </div>
+    </div>
+  );
 
   const grouped = MOMENTS.map(m => ({ ...m, repas: today.repas.filter(r => r.moment === m.value) }));
   const isToday = selectedDate === todayStr();
   const objectifs = today.objectifs || {};
 
   return (
-    <div style={{ minHeight: "100vh", background: "#F4F6FF", fontFamily: "'Sora', sans-serif" }}>
-      <style>{`@import url('https://fonts.googleapis.com/css2?family=Sora:wght@400;600;700;800;900&display=swap');`}</style>
+    <div style={{ minHeight: "100vh", background: BG, fontFamily: "'Sora', sans-serif" }}>
+      <style>{`
+        @import url('https://fonts.googleapis.com/css2?family=Sora:wght@400;600;700;800;900&display=swap');
+        * { -webkit-tap-highlight-color: transparent; }
+        button { font-family: inherit; }
+      `}</style>
 
-      <div style={{ background: `linear-gradient(135deg, ${BLUE} 0%, #6366F1 100%)`, padding: "20px 20px 26px", borderRadius: "0 0 28px 28px" }}>
-        <div style={{ display: "flex", justifyContent: "space-between", alignItems: "center" }}>
+      {/* ── HEADER ─────────────────────────────────────────── */}
+      <div style={{
+        background: GRADIENT_HEADER,
+        padding: "20px 20px 28px",
+        borderRadius: "0 0 28px 28px",
+        position: "relative", overflow: "hidden"
+      }}>
+        {/* Cercles décoratifs glassmorphism */}
+        <div style={{ position: "absolute", top: -50, right: -50, width: 180, height: 180, borderRadius: "50%", background: "rgba(255,255,255,0.06)", pointerEvents: "none" }} />
+        <div style={{ position: "absolute", bottom: -40, left: 20, width: 120, height: 120, borderRadius: "50%", background: "rgba(255,255,255,0.04)", pointerEvents: "none" }} />
+
+        {/* Nom + actions */}
+        <div style={{ display: "flex", justifyContent: "space-between", alignItems: "flex-start", position: "relative" }}>
           <div>
-            <p style={{ margin: 0, color: "rgba(255,255,255,0.75)", fontSize: 13 }}>Bonjour</p>
-            <h2 style={{ margin: "2px 0 0", color: "white", fontWeight: 800, fontSize: 22 }}>{user.prenom} {user.nom}</h2>
+            <p style={{ margin: 0, color: "rgba(255,255,255,0.65)", fontSize: 11, fontWeight: 600, letterSpacing: "0.5px", textTransform: "uppercase" }}>Bonjour</p>
+            <h2 style={{ margin: "3px 0 0", color: "white", fontWeight: 800, fontSize: 20, lineHeight: 1.2 }}>{user.prenom} {user.nom}</h2>
           </div>
           <div style={{ display: "flex", gap: 8 }}>
-            <div onClick={() => setShowEditProfile(true)} style={{
-              width: 40, height: 40, borderRadius: "50%", background: "rgba(255,255,255,0.2)",
-              display: "flex", alignItems: "center", justifyContent: "center", fontSize: 17, cursor: "pointer"
-            }}>⚙️</div>
-            <div onClick={logout} style={{
-              width: 40, height: 40, borderRadius: "50%", background: "rgba(255,255,255,0.2)",
-              display: "flex", alignItems: "center", justifyContent: "center", fontSize: 18, cursor: "pointer"
-            }}>🚪</div>
+            {[["⚙️", () => setShowEditProfile(true)], ["🚪", () => { clearToken(); onLogout(); }]].map(([icon, fn], i) => (
+              <button key={i} onClick={fn} style={{
+                width: 38, height: 38, borderRadius: "50%",
+                background: "rgba(255,255,255,0.15)",
+                backdropFilter: "blur(8px)",
+                border: "1px solid rgba(255,255,255,0.2)",
+                fontSize: 16, cursor: "pointer", display: "flex",
+                alignItems: "center", justifyContent: "center"
+              }}>{icon}</button>
+            ))}
           </div>
         </div>
 
-        <div style={{ marginTop: 18, background: "rgba(255,255,255,0.15)", borderRadius: 18, padding: 16, textAlign: "center" }}>
-          <p style={{ margin: 0, color: "rgba(255,255,255,0.75)", fontSize: 12 }}>
+        {/* Card déficit */}
+        <div style={{
+          marginTop: 16,
+          background: "rgba(255,255,255,0.12)",
+          backdropFilter: "blur(12px)",
+          border: "1px solid rgba(255,255,255,0.2)",
+          borderRadius: 20, padding: "16px 18px", textAlign: "center"
+        }}>
+          <p style={{ margin: 0, color: "rgba(255,255,255,0.7)", fontSize: 11, fontWeight: 600, letterSpacing: "0.3px" }}>
             Déficit calorique net {isToday ? "du jour" : `du ${formatDateLabel(selectedDate).toLowerCase()}`}
           </p>
-          <p style={{ margin: "4px 0 2px", color: "white", fontWeight: 900, fontSize: 36 }}>
-            {today.deficitNet > 0 ? "−" : "+"}{Math.abs(today.deficitNet)} kcal
+          <p style={{ margin: "6px 0 4px", color: "white", fontWeight: 900, fontSize: 38, lineHeight: 1, letterSpacing: "-1px" }}>
+            {today.deficitNet > 0 ? "−" : "+"}{Math.abs(today.deficitNet).toLocaleString('fr-FR')} kcal
           </p>
-          <div style={{ display: "flex", justifyContent: "center", alignItems: "center", gap: 8 }}>
-            <p style={{ margin: 0, color: "rgba(255,255,255,0.65)", fontSize: 11 }}>
-              Dépense {today.depenseDuJour} kcal · Ingéré {today.caloriesIngerees} kcal
+          <div style={{ display: "flex", justifyContent: "center", alignItems: "center", gap: 10 }}>
+            <p style={{ margin: 0, color: "rgba(255,255,255,0.6)", fontSize: 11 }}>
+              {today.depenseDuJour} dépensé · {today.caloriesIngerees} ingéré
             </p>
             <span style={{
-              background: objectifs.type === 'prise_de_masse' ? "rgba(34,197,94,0.25)" : "rgba(239,68,68,0.25)",
-              color: "white", fontSize: 10, fontWeight: 700, padding: "2px 8px", borderRadius: 99
+              background: objectifs.type === "prise_de_masse" ? "rgba(34,197,94,0.3)" : "rgba(239,68,68,0.25)",
+              border: objectifs.type === "prise_de_masse" ? "1px solid rgba(34,197,94,0.4)" : "1px solid rgba(239,68,68,0.35)",
+              color: "white", fontSize: 10, fontWeight: 700, padding: "3px 10px", borderRadius: 99
             }}>
-              {objectifs.type === 'prise_de_masse' ? "💪 Prise de masse" : "🔥 Sèche"}
+              {objectifs.type === "prise_de_masse" ? "💪 Prise de masse" : "🔥 Sèche"}
             </span>
           </div>
         </div>
 
+        {/* Barres macro */}
         {objectifs.proteines_g && (
-          <div style={{ marginTop: 10, background: "rgba(255,255,255,0.12)", borderRadius: 14, padding: 12 }}>
-            {[
-              { label: "Calories", valeur: today.caloriesIngerees, cible: objectifs.calories_cible, unite: "kcal", couleur: "rgba(255,255,255,0.9)" },
-              { label: "Protéines", valeur: today.bilan?.proteinesTotales ?? 0, cible: objectifs.proteines_g, unite: "g", couleur: "#93c5fd" },
-              { label: "Glucides", valeur: today.bilan?.glucidesTotales ?? 0, cible: objectifs.glucides_g, unite: "g", couleur: "#fde68a" },
-              { label: "Lipides", valeur: today.bilan?.lipidesTotales ?? 0, cible: objectifs.lipides_g, unite: "g", couleur: "#fca5a5" },
-              { label: "Fibres", valeur: today.bilan?.fibresTotales ?? 0, cible: objectifs.fibres_g, unite: "g", couleur: "#86efac" },
-            ].map(({ label, valeur, cible, unite, couleur }) => cible ? (
-              <div key={label} style={{ marginBottom: 8 }}>
-                <div style={{ display: "flex", justifyContent: "space-between", marginBottom: 3 }}>
-                  <span style={{ fontSize: 10, color: "rgba(255,255,255,0.7)" }}>{label}</span>
-                  <span style={{ fontSize: 10, color: couleur, fontWeight: 700 }}>{valeur} / {cible}{unite}</span>
-                </div>
-                <div style={{ background: "rgba(255,255,255,0.15)", borderRadius: 99, height: 5, overflow: "hidden" }}>
-                  <div style={{
-                    background: couleur, height: "100%", borderRadius: 99,
-                    width: `${Math.min(100, (valeur / cible) * 100)}%`,
-                    transition: "width 0.3s"
-                  }} />
-                </div>
-              </div>
-            ) : null)}
+          <div style={{
+            marginTop: 12,
+            background: "rgba(255,255,255,0.1)",
+            borderRadius: 16, padding: "12px 14px"
+          }}>
+            <MacroBar label="Calories" value={today.caloriesIngerees} max={objectifs.calories_cible} color="rgba(255,255,255,0.9)" />
+            <MacroBar label="Protéines" value={today.bilan?.proteinesTotales ?? 0} max={objectifs.proteines_g} color="#93c5fd" />
+            <MacroBar label="Glucides" value={today.bilan?.glucidesTotales ?? 0} max={objectifs.glucides_g} color="#fde68a" />
+            <MacroBar label="Lipides" value={today.bilan?.lipidesTotales ?? 0} max={objectifs.lipides_g} color="#fca5a5" />
+            <MacroBar label="Fibres" value={today.bilan?.fibresTotales ?? 0} max={objectifs.fibres_g} color="#86efac" />
           </div>
         )}
       </div>
 
-      <div style={{ display: "flex", margin: "16px 16px 0", background: "white", borderRadius: 12, padding: 4, gap: 3, overflowX: "auto" }}>
-        {[["journal", "📓 Journal"], ["repas", "🍽️ Repas"], ["activite", "🏃 Activité"], ["progres", "📊 Progrès"]].map(([key, label]) => (
+      {/* ── NAVIGATION TABS ───────────────────────────────── */}
+      <div style={{
+        display: "flex", margin: "14px 16px 0",
+        background: "white", borderRadius: 14, padding: 4, gap: 3,
+        boxShadow: "0 2px 12px rgba(59,91,252,0.08)"
+      }}>
+        {[["journal", "📓", "Journal"], ["repas", "🍽️", "Repas"], ["activite", "🏃", "Activité"], ["progres", "📊", "Progrès"]].map(([key, icon, label]) => (
           <button key={key} onClick={() => setTab(key)} style={{
-            flex: 1, padding: "9px 4px", borderRadius: 9, border: "none", whiteSpace: "nowrap",
-            background: tab === key ? BLUE : "transparent", color: tab === key ? "white" : "#777",
-            fontWeight: 700, fontSize: 12, cursor: "pointer", transition: "all 0.2s"
-          }}>{label}</button>
+            flex: 1, padding: "9px 4px", borderRadius: 10, border: "none",
+            background: tab === key ? BLUE : "transparent",
+            color: tab === key ? "white" : TEXT_MUTED,
+            fontWeight: 700, fontSize: 11, cursor: "pointer",
+            transition: "all 0.2s", whiteSpace: "nowrap",
+            boxShadow: tab === key ? "0 2px 8px rgba(59,91,252,0.3)" : "none"
+          }}>
+            <span style={{ display: "block", fontSize: 14, marginBottom: 1 }}>{icon}</span>
+            {label}
+          </button>
         ))}
       </div>
 
+      {/* ── CONTENU ───────────────────────────────────────── */}
       <div style={{ padding: "14px 16px 80px" }}>
 
+        {/* ── JOURNAL ─────────────────────────────────────── */}
         {tab === "journal" && (
           <div>
+            {/* Sous-onglets Jour/Semaine/Mois */}
             <div style={{ display: "flex", gap: 6, marginBottom: 12 }}>
               {[["jour", "Jour"], ["semaine", "Semaine"], ["mois", "Mois"]].map(([key, label]) => (
                 <button key={key} onClick={() => setJournalView(key)} style={{
-                  flex: 1, padding: "8px 4px", borderRadius: 10, border: journalView === key ? `2px solid ${BLUE}` : "2px solid #E0E6FF",
-                  background: journalView === key ? BLUE_LIGHT : "white", color: journalView === key ? BLUE : "#888",
-                  fontWeight: 700, fontSize: 12, cursor: "pointer"
+                  flex: 1, padding: "8px 4px", borderRadius: 10, cursor: "pointer",
+                  border: journalView === key ? `2px solid ${BLUE}` : "2px solid #E0E6FF",
+                  background: journalView === key ? BLUE_LIGHT : "white",
+                  color: journalView === key ? BLUE : TEXT_MUTED,
+                  fontWeight: 700, fontSize: 12, transition: "all 0.15s"
                 }}>{label}</button>
               ))}
             </div>
 
+            {/* Vue Jour */}
             {journalView === "jour" && (
               <div>
-                <div style={{ display: "flex", alignItems: "center", justifyContent: "space-between", marginBottom: 14 }}>
+                {/* Navigation date */}
+                <div style={{ display: "flex", alignItems: "center", justifyContent: "space-between", marginBottom: 12 }}>
                   <button onClick={() => setSelectedDate(addDays(selectedDate, -1))} style={{
-                    width: 38, height: 38, borderRadius: 12, border: "none", background: "white",
-                    fontSize: 16, cursor: "pointer", boxShadow: "0 2px 8px rgba(59,91,252,0.1)"
+                    width: 36, height: 36, borderRadius: 11, border: "none",
+                    background: "white", cursor: "pointer", fontSize: 16,
+                    boxShadow: "0 2px 8px rgba(59,91,252,0.1)", color: BLUE, fontWeight: 700
                   }}>←</button>
-
                   <div onClick={() => setShowDatePicker(!showDatePicker)} style={{ textAlign: "center", cursor: "pointer", flex: 1 }}>
-                    <p style={{ margin: 0, fontWeight: 700, fontSize: 14, color: "#1a1a2e" }}>
+                    <p style={{ margin: 0, fontWeight: 700, fontSize: 13, color: TEXT }}>
                       📅 {formatDateLabel(selectedDate)}
                     </p>
                   </div>
-
                   <button onClick={() => setSelectedDate(addDays(selectedDate, 1))} disabled={isToday} style={{
-                    width: 38, height: 38, borderRadius: 12, border: "none",
-                    background: isToday ? "#F0F2FF" : "white", color: isToday ? "#ccc" : "#1a1a2e",
-                    fontSize: 16, cursor: isToday ? "default" : "pointer", boxShadow: isToday ? "none" : "0 2px 8px rgba(59,91,252,0.1)"
+                    width: 36, height: 36, borderRadius: 11, border: "none",
+                    background: isToday ? "#F4F6FF" : "white",
+                    color: isToday ? "#D1D5DB" : BLUE,
+                    cursor: isToday ? "default" : "pointer", fontSize: 16,
+                    boxShadow: isToday ? "none" : "0 2px 8px rgba(59,91,252,0.1)", fontWeight: 700
                   }}>→</button>
                 </div>
 
                 {showDatePicker && (
-                  <Card style={{ marginBottom: 12 }}>
-                    <input
-                      type="date"
-                      value={selectedDate}
-                      max={todayStr()}
+                  <div style={{ background: "white", borderRadius: 14, padding: 14, marginBottom: 12, boxShadow: "0 4px 20px rgba(59,91,252,0.1)" }}>
+                    <input type="date" value={selectedDate} max={todayStr()}
                       onChange={e => { setSelectedDate(e.target.value); setShowDatePicker(false); }}
-                      style={{ width: "100%", padding: 12, borderRadius: 10, border: "2px solid #E0E6FF", fontSize: 16 }}
+                      style={{ width: "100%", padding: 12, borderRadius: 10, border: "1.5px solid #E0E6FF", fontSize: 15, fontFamily: "inherit" }}
                     />
-                  </Card>
+                  </div>
                 )}
 
                 {grouped.map(g => (
-                  <Card key={g.value} style={{ marginBottom: 12 }}>
-                    <p style={{ margin: "0 0 10px", fontWeight: 700, fontSize: 14 }}>{g.label}</p>
-                    {g.repas.length === 0 && <p style={{ color: "#aaa", fontSize: 13, margin: 0 }}>Aucun repas loggé</p>}
-                    {g.repas.map(r => (
-                      <div key={r.id} style={{
-                        padding: "10px 0", borderTop: "1px solid #F0F2FF"
-                      }}>
-                        <div style={{ display: "flex", justifyContent: "space-between", alignItems: "flex-start", gap: 8 }}>
-                          <div style={{ flex: 1, minWidth: 0 }}>
-                            <p style={{ margin: 0, fontWeight: 600, fontSize: 13, wordBreak: "break-word" }}>{r.nom_repas}</p>
-                            <p style={{ margin: 0, fontSize: 11, color: "#888" }}>{r.proteines_g}g P · {r.glucides_g}g G · {r.lipides_g}g L</p>
-                          </div>
-                          <div style={{ display: "flex", flexDirection: "column", alignItems: "flex-end", gap: 6, flexShrink: 0 }}>
-                            <div style={{ fontWeight: 800, color: BLUE, fontSize: 15 }}>{r.calories} kcal</div>
-                            <button onClick={() => setEditingMeal(r)} style={{
-                              padding: "4px 10px", borderRadius: 8, border: `1px solid #E0E6FF`,
-                              background: "#F4F6FF", color: BLUE, fontSize: 11, fontWeight: 600,
-                              cursor: "pointer", whiteSpace: "nowrap"
-                            }}>✎ Modifier</button>
-                          </div>
-                        </div>
-                      </div>
-                    ))}
-                  </Card>
+                  <MealGroup key={g.value} moment={g} repas={g.repas} onEdit={setEditingMeal} />
                 ))}
 
                 {today.activites.length > 0 && (
-                  <Card style={{ marginBottom: 12 }}>
-                    <p style={{ margin: "0 0 10px", fontWeight: 700, fontSize: 14 }}>🏃 Activités</p>
+                  <div style={{ background: "white", borderRadius: 18, padding: "14px 16px", marginBottom: 10, boxShadow: "0 2px 16px rgba(59,91,252,0.06)", border: "1px solid #F0F2FF" }}>
+                    <p style={{ margin: "0 0 8px", fontWeight: 800, fontSize: 13, color: TEXT }}>🏃 Activités</p>
                     {today.activites.map(a => (
-                      <div key={a.id} style={{ display: "flex", justifyContent: "space-between", padding: "8px 0", borderTop: "1px solid #F0F2FF" }}>
-                        <p style={{ margin: 0, fontSize: 13, fontWeight: 600, textTransform: "capitalize" }}>{a.type_activite}</p>
-                        <p style={{ margin: 0, fontSize: 13, color: GREEN, fontWeight: 700 }}>−{a.calories_brulees} kcal</p>
+                      <div key={a.id} style={{ display: "flex", justifyContent: "space-between", padding: "7px 0", borderTop: "1px solid #F4F6FF" }}>
+                        <span style={{ fontSize: 13, fontWeight: 600, color: TEXT, textTransform: "capitalize" }}>{a.type_activite}</span>
+                        <span style={{ fontSize: 13, color: GREEN, fontWeight: 800 }}>−{a.calories_brulees} kcal</span>
                       </div>
                     ))}
-                  </Card>
+                  </div>
                 )}
 
                 <BilanComplet bilan={today.bilan} periodeLabel={isToday ? "de la journée" : `du ${formatDateLabel(selectedDate).toLowerCase()}`} />
               </div>
             )}
 
+            {/* Vue Semaine/Mois */}
             {(journalView === "semaine" || journalView === "mois") && range && (
               <div>
-                <Card style={{ marginBottom: 12 }}>
-                  <p style={{ margin: "0 0 4px", fontWeight: 700, fontSize: 14 }}>
-                    {journalView === "semaine" ? "7 derniers jours" : "30 derniers jours"}
-                  </p>
-                  <p style={{ margin: "0 0 12px", fontSize: 12, color: "#888" }}>
-                    Déficit moyen : <span style={{ color: range.deficitMoyen >= 0 ? GREEN : RED, fontWeight: 700 }}>
+                <div style={{ background: "white", borderRadius: 18, padding: "14px 16px", marginBottom: 10, boxShadow: "0 2px 16px rgba(59,91,252,0.06)", border: "1px solid #F0F2FF" }}>
+                  <SectionTitle>{journalView === "semaine" ? "7 derniers jours" : "30 derniers jours"}</SectionTitle>
+                  <p style={{ margin: "0 0 12px", fontSize: 12, color: TEXT_MUTED }}>
+                    Déficit moyen : <strong style={{ color: range.deficitMoyen >= 0 ? GREEN : RED }}>
                       {range.deficitMoyen >= 0 ? "−" : "+"}{Math.abs(range.deficitMoyen)} kcal/j
-                    </span>
+                    </strong>
                   </p>
                   <DeficitChart jours={range.jours} onDayClick={goToDay} selectedDate={selectedDate} />
-                  <div style={{ display: "flex", gap: 14, marginTop: 10, fontSize: 11, color: "#888" }}>
+                  <div style={{ display: "flex", gap: 14, marginTop: 10, fontSize: 11, color: TEXT_MUTED }}>
                     <span><span style={{ color: GREEN }}>■</span> Déficit</span>
                     <span><span style={{ color: RED }}>■</span> Surplus</span>
                   </div>
-                </Card>
+                </div>
 
-                <Card style={{ marginBottom: 12 }}>
-                  <p style={{ margin: "0 0 10px", fontWeight: 700, fontSize: 14 }}>Détail par jour</p>
+                <div style={{ background: "white", borderRadius: 18, padding: "14px 16px", marginBottom: 10, boxShadow: "0 2px 16px rgba(59,91,252,0.06)", border: "1px solid #F0F2FF" }}>
+                  <SectionTitle>Détail par jour</SectionTitle>
                   {range.jours.slice().reverse().map(j => (
                     <div key={j.date} onClick={() => goToDay(j.date)} style={{
                       display: "flex", justifyContent: "space-between", alignItems: "center",
-                      padding: "10px 0", borderTop: "1px solid #F0F2FF", cursor: "pointer"
+                      padding: "10px 0", borderTop: "1px solid #F4F6FF", cursor: "pointer"
                     }}>
                       <div>
-                        <p style={{ margin: 0, fontWeight: 600, fontSize: 13 }}>{formatDateLabel(j.date)}</p>
-                        <p style={{ margin: 0, fontSize: 11, color: "#888" }}>{j.nbRepas} repas loggé{j.nbRepas !== 1 ? "s" : ""}</p>
+                        <p style={{ margin: 0, fontWeight: 600, fontSize: 13, color: TEXT }}>{formatDateLabel(j.date)}</p>
+                        <p style={{ margin: 0, fontSize: 11, color: TEXT_MUTED }}>{j.nbRepas} repas loggé{j.nbRepas !== 1 ? "s" : ""}</p>
                       </div>
-                      <div style={{ fontWeight: 800, fontSize: 14, color: j.deficitNet >= 0 ? GREEN : RED }}>
+                      <div style={{
+                        fontWeight: 800, fontSize: 14,
+                        color: j.deficitNet >= 0 ? GREEN : RED,
+                        background: j.deficitNet >= 0 ? GREEN_LIGHT : RED_LIGHT,
+                        padding: "4px 10px", borderRadius: 10
+                      }}>
                         {j.deficitNet >= 0 ? "−" : "+"}{Math.abs(j.deficitNet)} kcal
                       </div>
                     </div>
                   ))}
-                </Card>
+                </div>
 
                 <BilanComplet bilan={range.bilan} periodeLabel={journalView === "semaine" ? "des 7 derniers jours" : "des 30 derniers jours"} />
               </div>
@@ -368,209 +417,154 @@ export default function Dashboard({ user: initialUser, onLogout }) {
           </div>
         )}
 
+        {/* ── REPAS ───────────────────────────────────────── */}
         {tab === "repas" && (
           <div>
             <div style={{ marginBottom: 14 }}>
               <Select label="Moment de la journée" value={moment} onChange={setMoment} options={MOMENTS} />
             </div>
             <MealChat
-              onAnalyzeText={async (description) => { const r = await api.analyzeMealText(description, moment); await refresh(); return r; }}
+              onAnalyzeText={async (desc) => { const r = await api.analyzeMealText(desc, moment); await refresh(); return r; }}
               onAnalyzeImage={async (b64) => { const r = await api.analyzeMeal(b64, moment); await refresh(); return r; }}
-              onAnalyzeBoth={async (b64, description) => { const r = await api.analyzeMealCombined(b64, description, moment); await refresh(); return r; }}
+              onAnalyzeBoth={async (b64, desc) => { const r = await api.analyzeMealCombined(b64, desc, moment); await refresh(); return r; }}
               renderResult={renderMealResult}
             />
           </div>
         )}
 
+        {/* ── ACTIVITÉ ────────────────────────────────────── */}
         {tab === "activite" && (
           <PhotoCapture
             title="Capture ton activité"
-            description="Capture d'écran de tes anneaux d'activité, montre connectée ou écran de fin de séance."
+            description="Screenshot de tes anneaux, montre connectée ou écran de fin de séance."
             icon="🏃"
             extraControls={<Select label="Type d'activité" value={activityType} onChange={setActivityType} options={ACTIVITY_TYPES} />}
             onAnalyze={async (b64) => { const r = await api.analyzeActivity(b64, activityType); await refresh(); return r; }}
             renderResult={(r) => (
-              <Card>
-                <h3 style={{ fontWeight: 800, fontSize: 17, margin: "0 0 14px", textTransform: "capitalize" }}>{r.type_activite}</h3>
-                <div style={{ display: "grid", gridTemplateColumns: "1fr 1fr", gap: 10 }}>
-                  {[["👟 Pas", r.pas], ["📍 Distance", r.distance_km ? `${r.distance_km} km` : "—"],
+              <div style={{ background: "white", borderRadius: 18, padding: 16, boxShadow: "0 4px 20px rgba(59,91,252,0.1)", border: "1px solid #F0F2FF" }}>
+                <h3 style={{ fontWeight: 800, fontSize: 16, margin: "0 0 14px", textTransform: "capitalize", color: TEXT }}>{r.type_activite}</h3>
+                <div style={{ display: "grid", gridTemplateColumns: "1fr 1fr", gap: 10, marginBottom: 12 }}>
+                  {[["👟 Pas", r.pas ?? "—"], ["📍 Distance", r.distance_km ? `${r.distance_km} km` : "—"],
                     ["⏱️ Durée", r.duree_min ? `${r.duree_min} min` : "—"], ["❤️ FC moy.", r.frequence_cardiaque_moy ? `${r.frequence_cardiaque_moy} bpm` : "—"]].map(([l, v]) => (
                     <div key={l} style={{ background: BLUE_LIGHT, borderRadius: 12, padding: 12, textAlign: "center" }}>
-                      <div style={{ fontSize: 11, color: "#888", marginBottom: 4 }}>{l}</div>
-                      <div style={{ fontWeight: 800, fontSize: 16, color: BLUE }}>{v ?? "—"}</div>
+                      <div style={{ fontSize: 11, color: TEXT_MUTED, marginBottom: 4 }}>{l}</div>
+                      <div style={{ fontWeight: 800, fontSize: 16, color: BLUE }}>{v}</div>
                     </div>
                   ))}
                 </div>
-                <div style={{ marginTop: 12, background: "#F0FFF4", borderRadius: 12, padding: 12, textAlign: "center" }}>
-                  <span style={{ fontWeight: 800, fontSize: 18, color: GREEN }}>−{r.calories_brulees || 0} kcal</span>
-                  <span style={{ fontSize: 12, color: "#666" }}> brûlées</span>
-                </div>
-              </Card>
+                <GradientCard style={{ textAlign: "center" }}>
+                  <span style={{ fontWeight: 900, fontSize: 22, color: "white" }}>−{r.calories_brulees || 0} kcal</span>
+                  <span style={{ fontSize: 13, color: "rgba(255,255,255,0.75)" }}> brûlées</span>
+                </GradientCard>
+              </div>
             )}
           />
         )}
 
+        {/* ── PROGRÈS ─────────────────────────────────────── */}
         {tab === "progres" && progress && (
           <div>
-            {/* Sous-onglets Progrès */}
             <div style={{ display: "flex", gap: 6, marginBottom: 12 }}>
               {[["overview", "📊 Résumé"], ["composition", "🧬 Composition"]].map(([key, label]) => (
                 <button key={key} onClick={() => setProgresView(key)} style={{
-                  flex: 1, padding: "8px 4px", borderRadius: 10, border: progresView === key ? `2px solid ${BLUE}` : "2px solid #E0E6FF",
-                  background: progresView === key ? BLUE_LIGHT : "white", color: progresView === key ? BLUE : "#888",
-                  fontWeight: 700, fontSize: 12, cursor: "pointer"
+                  flex: 1, padding: "8px 4px", borderRadius: 10, cursor: "pointer",
+                  border: progresView === key ? `2px solid ${BLUE}` : "2px solid #E0E6FF",
+                  background: progresView === key ? BLUE_LIGHT : "white",
+                  color: progresView === key ? BLUE : TEXT_MUTED,
+                  fontWeight: 700, fontSize: 12, transition: "all 0.15s"
                 }}>{label}</button>
               ))}
             </div>
 
-            {/* Onglet Composition */}
             {progresView === "composition" && (
-              <BodyCompositionTab
-                progress={progress}
-                bmi={today?.bmi}
-                onRefresh={refresh}
-              />
+              <BodyCompositionTab progress={progress} bmi={today?.bmi} onRefresh={refresh} />
             )}
 
-            {/* Onglet Résumé */}
             {progresView === "overview" && (
-            <div>
-            <Card style={{ marginBottom: 12 }}>
-              <p style={{ margin: "0 0 14px", fontWeight: 700, fontSize: 15 }}>📊 Vue d'ensemble</p>
-              <div style={{ display: "grid", gridTemplateColumns: "1fr 1fr", gap: 10, marginBottom: 12 }}>
-                <div style={{ background: BLUE_LIGHT, borderRadius: 12, padding: 12, textAlign: "center" }}>
-                  <div style={{ fontSize: 11, color: "#888" }}>Poids actuel</div>
-                  <div style={{ fontWeight: 800, fontSize: 20, color: BLUE }}>{progress.poidsActuel} kg</div>
+              <div>
+                {/* Vue d'ensemble */}
+                <div style={{ display: "grid", gridTemplateColumns: "1fr 1fr", gap: 10, marginBottom: 12 }}>
+                  <StatCard label="Poids actuel" value={progress.poidsActuel} unit="kg" color={BLUE} icon="⚖️" />
+                  <StatCard label="Objectif" value={progress.poidsObjectif} unit="kg" color={PURPLE} icon="🎯" />
                 </div>
-                <div style={{ background: BLUE_LIGHT, borderRadius: 12, padding: 12, textAlign: "center" }}>
-                  <div style={{ fontSize: 11, color: "#888" }}>Objectif</div>
-                  <div style={{ fontWeight: 800, fontSize: 20, color: BLUE }}>{progress.poidsObjectif} kg</div>
+
+                {progress.semainesRestantes !== null && (
+                  <GradientCard style={{ marginBottom: 12, textAlign: "center" }}>
+                    <p style={{ margin: 0, color: "rgba(255,255,255,0.75)", fontSize: 11, fontWeight: 600 }}>Estimation au rythme actuel</p>
+                    <p style={{ margin: "6px 0 2px", color: "white", fontWeight: 900, fontSize: 28 }}>{progress.semainesRestantes} semaines</p>
+                    <p style={{ margin: 0, color: "rgba(255,255,255,0.6)", fontSize: 11 }}>Déficit moyen : {progress.deficitMoyenJournalier} kcal/j</p>
+                  </GradientCard>
+                )}
+
+                {progress.recapMensuel && (
+                  <div style={{ background: "white", borderRadius: 18, padding: "16px", marginBottom: 12, boxShadow: "0 2px 16px rgba(59,91,252,0.06)", border: "1px solid #F0F2FF" }}>
+                    <SectionTitle>🗓️ 30 derniers jours</SectionTitle>
+                    <p style={{ margin: "0 0 14px", fontSize: 12, color: TEXT_MUTED }}>
+                      {progress.recapMensuel.joursActifs30j} jour{progress.recapMensuel.joursActifs30j !== 1 ? "s" : ""} avec repas loggé{progress.recapMensuel.joursActifs30j !== 1 ? "s" : ""}
+                    </p>
+
+                    <div style={{ display: "grid", gridTemplateColumns: "1fr 1fr", gap: 10, marginBottom: 14 }}>
+                      <StatCard label="Déficit cumulé"
+                        value={`${progress.recapMensuel.deficitCumule30j >= 0 ? "−" : "+"}${Math.abs(progress.recapMensuel.deficitCumule30j).toLocaleString('fr-FR')}`}
+                        unit="kcal" color={progress.recapMensuel.deficitCumule30j >= 0 ? GREEN : RED} />
+                      <StatCard label="Perte gras estimée"
+                        value={`${Math.abs(progress.recapMensuel.perteGrasEstimeeKg)}`}
+                        unit="kg" color={ORANGE} icon="🔥" />
+                    </div>
+
+                    <div style={{ display: "flex", justifyContent: "space-between", padding: "8px 0", borderTop: "1px solid #F4F6FF" }}>
+                      <span style={{ fontSize: 13, color: TEXT_MUTED }}>Poids perdu mesuré</span>
+                      <span style={{ fontSize: 13, fontWeight: 700, color: TEXT }}>{progress.recapMensuel.poidsPerduReel} kg</span>
+                    </div>
+                    <div style={{ display: "flex", justifyContent: "space-between", padding: "8px 0", borderTop: "1px solid #F4F6FF", marginBottom: 12 }}>
+                      <span style={{ fontSize: 13, color: TEXT_MUTED }}>Reste à perdre</span>
+                      <span style={{ fontSize: 13, fontWeight: 700, color: TEXT }}>{progress.recapMensuel.totalARestant} kg</span>
+                    </div>
+
+                    <div style={{ display: "flex", justifyContent: "space-between", marginBottom: 6 }}>
+                      <span style={{ fontSize: 11, color: TEXT_MUTED }}>Progression vers l'objectif</span>
+                      <span style={{ fontSize: 11, color: BLUE, fontWeight: 700 }}>{progress.recapMensuel.progressionPct}%</span>
+                    </div>
+                    <ProgressBar value={progress.recapMensuel.progressionPct} max={100} color={BLUE} height={10} />
+
+                    <p style={{ margin: "10px 0 0", fontSize: 10, color: "#C5CDFF" }}>
+                      Estimation théorique : 7700 kcal ≈ 1 kg de masse grasse.
+                    </p>
+                  </div>
+                )}
+
+                <div style={{ background: "white", borderRadius: 18, padding: "16px", marginBottom: 12, boxShadow: "0 2px 16px rgba(59,91,252,0.06)", border: "1px solid #F0F2FF" }}>
+                  <SectionTitle>📈 Évolution du poids</SectionTitle>
+                  {progress.history.length < 2
+                    ? <p style={{ color: TEXT_MUTED, fontSize: 13 }}>Ajoute au moins 2 pesées pour afficher la courbe.</p>
+                    : <WeightChart history={progress.history} poidsObjectif={progress.poidsObjectif} />
+                  }
+                </div>
+
+                <div style={{ background: "white", borderRadius: 18, padding: "16px", boxShadow: "0 2px 16px rgba(59,91,252,0.06)", border: "1px solid #F0F2FF" }}>
+                  <SectionTitle>Historique des pesées</SectionTitle>
+                  {progress.history.length === 0 && <p style={{ color: TEXT_MUTED, fontSize: 13 }}>Aucune pesée enregistrée.</p>}
+                  {progress.history.slice().reverse().slice(0, 5).map(h => (
+                    <div key={h.id} style={{ display: "flex", justifyContent: "space-between", alignItems: "center", padding: "8px 0", borderTop: "1px solid #F4F6FF" }}>
+                      <span style={{ fontSize: 13, color: TEXT_MUTED }}>{new Date(h.logged_at).toLocaleDateString('fr-FR')}</span>
+                      <div style={{ display: "flex", gap: 8, alignItems: "center" }}>
+                        {h.masse_grasse_pct && <span style={{ fontSize: 11, color: ORANGE, fontWeight: 600 }}>MG {h.masse_grasse_pct}%</span>}
+                        <span style={{ fontSize: 13, fontWeight: 700, color: TEXT }}>{h.poids_kg} kg</span>
+                        <button onClick={() => handleDeleteBodyComposition(h.id)} style={{ background: "none", border: "none", cursor: "pointer", fontSize: 14, color: "#E5E7EB" }}>🗑️</button>
+                      </div>
+                    </div>
+                  ))}
                 </div>
               </div>
-              {progress.semainesRestantes !== null && (
-                <div style={{ background: `linear-gradient(135deg, ${BLUE} 0%, #6366F1 100%)`, borderRadius: 14, padding: 16, textAlign: "center" }}>
-                  <p style={{ margin: 0, color: "rgba(255,255,255,0.8)", fontSize: 12 }}>Estimation au rythme actuel</p>
-                  <p style={{ margin: "4px 0 0", color: "white", fontWeight: 900, fontSize: 24 }}>{progress.semainesRestantes} semaines</p>
-                  <p style={{ margin: 0, color: "rgba(255,255,255,0.65)", fontSize: 11 }}>Déficit moyen : {progress.deficitMoyenJournalier} kcal/j</p>
-                </div>
-              )}
-            </Card>
-
-            {progress.recapMensuel && (
-              <Card style={{ marginBottom: 12 }}>
-                <p style={{ margin: "0 0 4px", fontWeight: 700, fontSize: 15 }}>🗓️ Récapitulatif des 30 derniers jours</p>
-                <p style={{ margin: "0 0 14px", fontSize: 12, color: "#888" }}>
-                  {progress.recapMensuel.joursActifs30j} jour{progress.recapMensuel.joursActifs30j !== 1 ? "s" : ""} avec repas loggé{progress.recapMensuel.joursActifs30j !== 1 ? "s" : ""}
-                </p>
-
-                <div style={{ display: "grid", gridTemplateColumns: "1fr 1fr", gap: 10, marginBottom: 12 }}>
-                  <div style={{ background: "#F0FFF4", borderRadius: 12, padding: 12, textAlign: "center" }}>
-                    <div style={{ fontSize: 11, color: "#888" }}>Déficit cumulé</div>
-                    <div style={{ fontWeight: 800, fontSize: 17, color: progress.recapMensuel.deficitCumule30j >= 0 ? GREEN : RED }}>
-                      {progress.recapMensuel.deficitCumule30j >= 0 ? "−" : "+"}{Math.abs(progress.recapMensuel.deficitCumule30j).toLocaleString('fr-FR')} kcal
-                    </div>
-                  </div>
-                  <div style={{ background: "#FFF7ED", borderRadius: 12, padding: 12, textAlign: "center" }}>
-                    <div style={{ fontSize: 11, color: "#888" }}>Perte de gras estimée</div>
-                    <div style={{ fontWeight: 800, fontSize: 17, color: ORANGE }}>
-                      {progress.recapMensuel.perteGrasEstimeeKg >= 0 ? "" : "+"}{Math.abs(progress.recapMensuel.perteGrasEstimeeKg)} kg
-                    </div>
-                  </div>
-                </div>
-
-                <div style={{ display: "flex", justifyContent: "space-between", padding: "8px 0", borderTop: "1px solid #F0F2FF" }}>
-                  <span style={{ fontSize: 13, color: "#888" }}>Poids perdu réel (mesuré)</span>
-                  <span style={{ fontSize: 13, fontWeight: 700 }}>{progress.recapMensuel.poidsPerduReel} kg</span>
-                </div>
-                <div style={{ display: "flex", justifyContent: "space-between", padding: "8px 0", borderTop: "1px solid #F0F2FF" }}>
-                  <span style={{ fontSize: 13, color: "#888" }}>Reste à perdre pour l'objectif</span>
-                  <span style={{ fontSize: 13, fontWeight: 700 }}>{progress.recapMensuel.totalARestant} kg</span>
-                </div>
-
-                <div style={{ marginTop: 12 }}>
-                  <div style={{ display: "flex", justifyContent: "space-between", marginBottom: 6 }}>
-                    <span style={{ fontSize: 11, color: "#888" }}>Progression vers l'objectif</span>
-                    <span style={{ fontSize: 11, color: BLUE, fontWeight: 700 }}>{progress.recapMensuel.progressionPct}%</span>
-                  </div>
-                  <div style={{ background: "#F0F2FF", borderRadius: 99, height: 10, overflow: "hidden" }}>
-                    <div style={{ background: BLUE, height: "100%", width: `${progress.recapMensuel.progressionPct}%`, borderRadius: 99, transition: "width 0.3s" }} />
-                  </div>
-                </div>
-
-                <p style={{ margin: "12px 0 0", fontSize: 11, color: "#aaa" }}>
-                  Estimation théorique basée sur 7700 kcal ≈ 1 kg de masse grasse. Le poids mesuré peut différer (eau, glycogène, masse musculaire).
-                </p>
-              </Card>
-            )}
-
-            <Card style={{ marginBottom: 12 }}>
-              <p style={{ margin: "0 0 10px", fontWeight: 700, fontSize: 15 }}>📈 Évolution du poids</p>
-              {progress.history.length < 2
-                ? <p style={{ color: "#aaa", fontSize: 13 }}>Au moins 2 pesées sont nécessaires pour afficher une courbe.</p>
-                : <WeightChart history={progress.history} poidsObjectif={progress.poidsObjectif} />}
-            </Card>
-
-            <Card style={{ marginBottom: 12 }}>
-              <p style={{ margin: "0 0 10px", fontWeight: 700, fontSize: 15 }}>Historique des pesées</p>
-              {progress.history.length === 0 && <p style={{ color: "#aaa", fontSize: 13 }}>Aucune donnée encore. Ajoute ta première pesée ci-dessous.</p>}
-              {progress.history.slice().reverse().slice(0, 5).map(h => (
-                <div key={h.id} style={{ display: "flex", justifyContent: "space-between", alignItems: "center", padding: "8px 0", borderTop: "1px solid #F0F2FF" }}>
-                  <span style={{ fontSize: 13, color: "#888" }}>{new Date(h.logged_at).toLocaleDateString('fr-FR')}</span>
-                  <span style={{ fontSize: 13, fontWeight: 700 }}>{h.poids_kg} kg</span>
-                  {h.masse_grasse_pct && <span style={{ fontSize: 12, color: ORANGE }}>{h.masse_grasse_pct}% MG</span>}
-                  <span onClick={() => handleDeleteBodyComposition(h.id)} style={{ color: RED, fontSize: 13, cursor: "pointer" }}>🗑️</span>
-                </div>
-              ))}
-            </Card>
-
-            <PhotoCapture
-              title="Ajouter une pesée"
-              description="Capture d'écran de ta balance connectée (impédancemétrie)."
-              icon="⚖️"
-              onAnalyze={async (b64) => { const r = await api.analyzeBodyComposition(b64); await refresh(); return r; }}
-              renderResult={(r) => (
-                <Card>
-                  <div style={{ display: "grid", gridTemplateColumns: "1fr 1fr", gap: 10 }}>
-                    <div style={{ background: BLUE_LIGHT, borderRadius: 12, padding: 12, textAlign: "center" }}>
-                      <div style={{ fontSize: 11, color: "#888" }}>Poids</div>
-                      <div style={{ fontWeight: 800, fontSize: 18, color: BLUE }}>{r.poids_kg} kg</div>
-                    </div>
-                    {r.masse_grasse_pct && (
-                      <div style={{ background: "#FFF7ED", borderRadius: 12, padding: 12, textAlign: "center" }}>
-                        <div style={{ fontSize: 11, color: "#888" }}>Masse grasse</div>
-                        <div style={{ fontWeight: 800, fontSize: 18, color: ORANGE }}>{r.masse_grasse_pct}%</div>
-                      </div>
-                    )}
-                    {r.masse_musculaire_pct && (
-                      <div style={{ background: "#F0FFF4", borderRadius: 12, padding: 12, textAlign: "center" }}>
-                        <div style={{ fontSize: 11, color: "#888" }}>Muscle</div>
-                        <div style={{ fontWeight: 800, fontSize: 18, color: GREEN }}>{r.masse_musculaire_pct}%</div>
-                      </div>
-                    )}
-                    {r.eau_pct && (
-                      <div style={{ background: "#EFF6FF", borderRadius: 12, padding: 12, textAlign: "center" }}>
-                        <div style={{ fontSize: 11, color: "#888" }}>Eau</div>
-                        <div style={{ fontWeight: 800, fontSize: 18, color: "#3b82f6" }}>{r.eau_pct}%</div>
-                      </div>
-                    )}
-                  </div>
-                </Card>
-              )}
-            />
-            </div>
             )}
           </div>
         )}
       </div>
 
+      {/* ── MODALS ──────────────────────────────────────────── */}
       {showEditProfile && (
-        <EditProfile
-          user={user}
-          onClose={() => setShowEditProfile(false)}
-          onUpdated={handleProfileUpdated}
-        />
+        <EditProfile user={user} onClose={() => setShowEditProfile(false)} onUpdated={handleProfileUpdated} />
       )}
-
       {editingMeal && (
         <EditMealModal
           meal={editingMeal}

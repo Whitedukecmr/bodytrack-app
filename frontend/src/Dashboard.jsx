@@ -544,7 +544,7 @@ export default function Dashboard({ user: initialUser, onLogout }) {
                 <div style={{ background: "white", borderRadius: 18, padding: "16px", boxShadow: "0 2px 16px rgba(59,91,252,0.06)", border: "1px solid #F0F2FF" }}>
                   <SectionTitle>Historique des pesées</SectionTitle>
                   {progress.history.length === 0 && <p style={{ color: TEXT_MUTED, fontSize: 13 }}>Aucune pesée enregistrée.</p>}
-                  {progress.history.slice().reverse().slice(0, 5).map(h => (
+                  {progress.history.slice().reverse().map(h => (
                     <div key={h.id} style={{ display: "flex", justifyContent: "space-between", alignItems: "center", padding: "8px 0", borderTop: "1px solid #F4F6FF" }}>
                       <span style={{ fontSize: 13, color: TEXT_MUTED }}>{new Date(h.logged_at).toLocaleDateString('fr-FR')}</span>
                       <div style={{ display: "flex", gap: 8, alignItems: "center" }}>

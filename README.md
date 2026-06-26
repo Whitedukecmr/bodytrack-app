@@ -12,7 +12,7 @@ Ce projet a été réalisé dans un **contexte d'apprentissage personnel**.
 
 L'intégralité du **code applicatif** (frontend React, backend Node.js/Express, schéma PostgreSQL, logique métier) a été **générée par Claude (Anthropic)**.
 
-En revanche, **Frédéric Junior EPESSE PRISO** a :
+En revanche, **Frédéric EPESSE PRISO** a :
 
 - Suivi et compris chaque étape du déploiement
 - Réutilisé et étendu une infrastructure AWS déjà provisionnée manuellement (EC2, ECR, IAM)

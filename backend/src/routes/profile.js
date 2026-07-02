@@ -334,4 +334,24 @@ router.get('/dashboard/progress', async (req, res) => {
   }
 });
 
+// ── Guide nutritionnel personnalisé ───────────────────────────
+router.get('/guide', async (req, res) => {
+  try {
+    const result = await pool.query('SELECT nutrition_guide FROM users WHERE id = $1', [req.userId]);
+    res.json({ guide: result.rows[0]?.nutrition_guide || null });
+  } catch (err) {
+    res.status(500).json({ error: err.message });
+  }
+});
+
+router.put('/guide', async (req, res) => {
+  try {
+    const { guide } = req.body;
+    await pool.query('UPDATE users SET nutrition_guide = $1 WHERE id = $2', [JSON.stringify(guide), req.userId]);
+    res.json({ success: true, guide });
+  } catch (err) {
+    res.status(500).json({ error: err.message });
+  }
+});
+
 module.exports = router;

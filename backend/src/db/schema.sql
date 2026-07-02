@@ -23,6 +23,7 @@ ALTER TABLE users ADD COLUMN IF NOT EXISTS objectif_proteines_g NUMERIC(6,1);
 ALTER TABLE users ADD COLUMN IF NOT EXISTS objectif_glucides_g NUMERIC(6,1);
 ALTER TABLE users ADD COLUMN IF NOT EXISTS objectif_lipides_g NUMERIC(6,1);
 ALTER TABLE users ADD COLUMN IF NOT EXISTS objectif_type VARCHAR(20) DEFAULT 'seche'; -- seche / prise_de_masse
+ALTER TABLE users ADD COLUMN IF NOT EXISTS nutrition_guide JSONB DEFAULT NULL;
 
 CREATE TABLE IF NOT EXISTS meals (
   id SERIAL PRIMARY KEY,

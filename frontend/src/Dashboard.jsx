@@ -13,6 +13,7 @@ import EditMealModal from "./EditMealModal";
 import BilanComplet from "./BilanComplet";
 import MealChat from "./MealChat";
 import BodyCompositionTab from "./BodyCompositionTab";
+import NutritionGuide from "./NutritionGuide";
 
 const MOMENTS = [
   { value: "matin", label: "🌅 Matin" },
@@ -573,6 +574,9 @@ export default function Dashboard({ user: initialUser, onLogout }) {
           onDeleted={handleMealDeleted}
         />
       )}
+
+      {/* Bouton flottant guide nutritionnel */}
+      <NutritionGuide />
     </div>
   );
 }

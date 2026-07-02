@@ -48,6 +48,8 @@ export const api = {
   updateActivity: (id, payload) => apiCall(`/entries/activities/${id}`, { method: 'PUT', body: JSON.stringify(payload) }),
   deleteActivity: (id) => apiCall(`/entries/activities/${id}`, { method: 'DELETE' }),
   deleteBodyComposition: (id) => apiCall(`/entries/body-composition/${id}`, { method: 'DELETE' }),
+  getGuide: () => apiCall('/profile/guide'),
+  saveGuide: (guide) => apiCall('/profile/guide', { method: 'PUT', body: JSON.stringify({ guide }) }),
 };
 
 export { getToken, setToken, clearToken };

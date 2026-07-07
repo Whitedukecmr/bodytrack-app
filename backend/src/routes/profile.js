@@ -135,7 +135,7 @@ router.get('/dashboard/today', async (req, res) => {
     // les jours très actifs).
     const DEFICIT_SECHE_KCAL = 700;    // cible choisie par l'utilisateur
     const SURPLUS_MASSE_KCAL = 300;    // valeur par défaut, ajustable plus tard
-    const MIN_CALORIES_SECURITE = 1900; // garde-fou, jamais en dessous (assure une marge glucides correcte vu proteines+lipides fixes)
+    const MIN_CALORIES_SECURITE = 2200; // garde-fou, jamais en dessous (assure ~114g glucides mini vu proteines+lipides fixes)
 
     const proteines = user.objectif_proteines_g != null ? Number(user.objectif_proteines_g) : objAuto.proteines;
     const lipides = user.objectif_lipides_g != null ? Number(user.objectif_lipides_g) : objAuto.lipides;

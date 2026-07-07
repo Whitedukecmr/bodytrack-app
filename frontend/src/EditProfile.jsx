@@ -33,7 +33,7 @@ function previewObjectifs({ sexe, poids_kg, poids_objectif_kg, objectif_type }) 
   return { calories, proteines, glucides, lipides, fibres };
 }
 
-export default function EditProfile({ user, onClose, onUpdated }) {
+export default function EditProfile({ user, poidsActuel, onClose, onUpdated }) {
   const [form, setForm] = useState({
     prenom: user.prenom,
     nom: user.nom,
@@ -54,7 +54,7 @@ export default function EditProfile({ user, onClose, onUpdated }) {
   // Prévisualisation en temps réel
   const preview = previewObjectifs({
     sexe: form.sexe,
-    poids_kg: user.poids_objectif_kg, // on utilise le poids actuel connu
+    poids_kg: poidsActuel || user.poids_objectif_kg, // fallback si poidsActuel indisponible
     poids_objectif_kg: form.poids_objectif_kg,
     objectif_type: form.objectif_type,
   });

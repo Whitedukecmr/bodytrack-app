@@ -564,7 +564,7 @@ export default function Dashboard({ user: initialUser, onLogout }) {
 
       {/* ── MODALS ──────────────────────────────────────────── */}
       {showEditProfile && (
-        <EditProfile user={user} onClose={() => setShowEditProfile(false)} onUpdated={handleProfileUpdated} />
+        <EditProfile user={user} poidsActuel={progress?.poidsActuel} onClose={() => setShowEditProfile(false)} onUpdated={handleProfileUpdated} />
       )}
       {editingMeal && (
         <EditMealModal

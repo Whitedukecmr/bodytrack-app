@@ -119,6 +119,8 @@ router.get('/dashboard/today', async (req, res) => {
     });
 
     // Objectifs journaliers selon le type (sèche ou prise de masse)
+    // Sert de référence pour les protéines/lipides (préservation musculaire),
+    // formules indépendantes du déficit calorique.
     const objAuto = calcObjectifsJournaliers({
       sexe: user.sexe,
       poids_kg: dernierPoids,
@@ -126,13 +128,40 @@ router.get('/dashboard/today', async (req, res) => {
       objectif_type: user.objectif_type || 'seche',
     });
 
+    // ── Objectif calorique DYNAMIQUE basé sur la dépense réelle du jour ──
+    // (BMR + activité loggée), au lieu d'un objectif fixe poids×26 qui ne
+    // tenait pas compte de l'activité réelle et pouvait créer un surplus
+    // caché les jours sans activité (ou un déficit trop faible/trop fort
+    // les jours très actifs).
+    const DEFICIT_SECHE_KCAL = 700;    // cible choisie par l'utilisateur
+    const SURPLUS_MASSE_KCAL = 300;    // valeur par défaut, ajustable plus tard
+    const MIN_CALORIES_SECURITE = 1500; // garde-fou, jamais en dessous
+
+    const proteines = user.objectif_proteines_g != null ? Number(user.objectif_proteines_g) : objAuto.proteines;
+    const lipides = user.objectif_lipides_g != null ? Number(user.objectif_lipides_g) : objAuto.lipides;
+
+    let caloriesCibleDynamique = objAuto.type === 'seche'
+      ? Math.round(depenseDuJour - DEFICIT_SECHE_KCAL)
+      : Math.round(depenseDuJour + SURPLUS_MASSE_KCAL);
+
+    if (objAuto.type === 'seche' && caloriesCibleDynamique < MIN_CALORIES_SECURITE) {
+      caloriesCibleDynamique = MIN_CALORIES_SECURITE;
+    }
+
+    const glucidesResiduel = user.objectif_glucides_g != null
+      ? Number(user.objectif_glucides_g)
+      : Math.max(0, Math.round((caloriesCibleDynamique - proteines * 4 - lipides * 9) / 4));
+
+    const fibresDynamique = Math.round((caloriesCibleDynamique / 1000) * 14);
+
     const objectifs = {
       type: objAuto.type,
-      calories_cible: objAuto.calories,
-      proteines_g: user.objectif_proteines_g != null ? Number(user.objectif_proteines_g) : objAuto.proteines,
-      glucides_g: user.objectif_glucides_g != null ? Number(user.objectif_glucides_g) : objAuto.glucides,
-      lipides_g: user.objectif_lipides_g != null ? Number(user.objectif_lipides_g) : objAuto.lipides,
-      fibres_g: objAuto.fibres,
+      calories_cible: caloriesCibleDynamique,
+      calories_cible_fixe_reference: objAuto.calories, // ancienne formule poids×26, gardée pour référence/debug
+      proteines_g: proteines,
+      glucides_g: glucidesResiduel,
+      lipides_g: lipides,
+      fibres_g: fibresDynamique,
       proteines_personnalise: user.objectif_proteines_g != null,
       lipides_personnalise: user.objectif_lipides_g != null,
     };

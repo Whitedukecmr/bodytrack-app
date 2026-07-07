@@ -29,7 +29,7 @@ router.put('/me', async (req, res) => {
       objectif_proteines_g, objectif_glucides_g, objectif_lipides_g, objectif_type
     } = req.body;
 
-    const niveauxValides = ['sedentaire', 'leger', 'modere', 'actif', 'tres_actif'];
+    const niveauxValides = ['bmr_pur', 'sedentaire', 'leger', 'modere', 'actif', 'tres_actif'];
     if (niveau_activite && !niveauxValides.includes(niveau_activite)) {
       return res.status(400).json({ error: 'Niveau d\'activité invalide' });
     }

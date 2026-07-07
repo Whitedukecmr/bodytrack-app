@@ -3,6 +3,7 @@ import { api } from "./api";
 import { Field, Select, Btn, ErrorBox, SuccessBox, BLUE, BLUE_LIGHT, GREEN, ORANGE, RED } from "./ui";
 
 const NIVEAUX_ACTIVITE = [
+  { value: "bmr_pur", label: "🎯 BMR pur (je logue TOUTE mon activité manuellement/Huawei)" },
   { value: "sedentaire", label: "Sédentaire (bureau, peu de sport)" },
   { value: "leger", label: "Légèrement actif (1-2x/sem)" },
   { value: "modere", label: "Modérément actif (3-4x/sem)" },

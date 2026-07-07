@@ -7,6 +7,7 @@ function calcBMR({ sexe, poids_kg, taille_cm, age }) {
 }
 
 const ACTIVITY_FACTORS = {
+  bmr_pur: 1.0,
   sedentaire: 1.2,
   leger: 1.375,
   modere: 1.55,

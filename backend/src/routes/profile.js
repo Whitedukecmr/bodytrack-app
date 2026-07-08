@@ -342,8 +342,8 @@ router.get('/dashboard/progress', async (req, res) => {
     const perteGrasEstimeeKg = +(deficitCumule30j / 7700).toFixed(1);
 
     const totalARestant = +(poidsActuel - user.poids_objectif_kg).toFixed(1);
-    const progressionPct = user.poids_initial_kg > user.poids_objectif_kg
-      ? Math.min(100, Math.round(((user.poids_initial_kg - poidsActuel) / (user.poids_initial_kg - user.poids_objectif_kg)) * 100))
+    const progressionPct = Number(user.poids_initial_kg) > Number(user.poids_objectif_kg)
+      ? Math.min(100, Math.round(((Number(user.poids_initial_kg) - poidsActuel) / (Number(user.poids_initial_kg) - Number(user.poids_objectif_kg))) * 100))
       : 0;
 
     res.json({

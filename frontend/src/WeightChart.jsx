@@ -25,7 +25,7 @@ export default function WeightChart({ history, poidsObjectif }) {
   const objectifY = yFor(Number(poidsObjectif));
 
   return (
-    <div style={{ overflowX: "auto" }}>
+    <div style={{ overflowX: "auto", maxWidth: 500, margin: "0 auto" }}>
       <svg width="100%" viewBox={`0 0 ${width} ${height}`} style={{ minWidth: 280 }}>
         {/* Ligne objectif en pointillés */}
         <line x1={padding.left} y1={objectifY} x2={width - padding.right} y2={objectifY}

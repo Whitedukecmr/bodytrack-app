@@ -1,0 +1,9 @@
+{
+  "appId": "com.bodytrack.app",
+  "appName": "BodyTrack",
+  "webDir": "dist",
+  "server": {
+    "url": "https://bodytrack.duckdns.org",
+    "cleartext": false
+  }
+}
